@@ -127,6 +127,20 @@ async fn exit_app(shared: State<'_, Shared>, app: tauri::AppHandle) -> Result<()
 }
 
 fn main() {
+    let context = tauri::generate_context!();
+    #[cfg(debug_assertions)]
+    let context = {
+        let mut context = context;
+        // Elevated WebView2 ignores environment overrides. Forward WebDriver's
+        // settings through the API only in debug builds, never in installed releases.
+        for window in &mut context.config_mut().app.windows {
+            window.additional_browser_args =
+                std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").ok();
+            window.data_directory =
+                std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").map(std::path::PathBuf::from);
+        }
+        context
+    };
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
         .setup(|app| {
@@ -200,7 +214,7 @@ fn main() {
             confirm_restored,
             exit_app
         ])
-        .run(tauri::generate_context!());
+        .run(context);
     if let Err(error) = result {
         // Startup errors must be visible even when the app has no console.
         let message = serde_json::json!({"message":format!("GameQuiet could not start: {error}")})

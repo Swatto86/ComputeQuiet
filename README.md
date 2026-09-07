@@ -2,10 +2,13 @@
 
 A Windows tray app that makes room for your game, then restores the apps it stopped.
 
+Windows requests administrator permission before launching GameQuiet. Cancelling UAC
+leaves the app closed. Child processes, including restored apps, inherit elevation.
+
 1. **Scan PC** measures CPU, GPU, memory and I/O.
 2. **Assess with cloud AI** uses your signed-in Codex or Claude CLI. Only limited process
    metadata is sent; no full paths, command lines, window titles or file contents.
-3. Review an app and choose **Allow in Game Mode**. These choices apply to the exact
+3. Review an app and choose **Close in Game Mode**. These choices apply to the exact
    executable version. Ollama also needs the interruption permission in Settings.
 4. **Turn on Game Mode** rechecks identities, saves recovery and applies your choices.
 5. **Turn off & restore** restarts only recorded workloads. Close the window to use the tray.
@@ -33,7 +36,8 @@ your provider account's applicable limits. Core actions and restoration do not n
 
 Install Rust 1.98.1 (MSVC), the Windows C++ build tools and Node.js. Run `npm ci`, then
 `npm run dev`. `scripts/verify.ps1` runs formatting, checks, tests and real-webview E2E.
-The E2E harness uses installed `tauri-driver` and an Edge driver matching WebView2.
+Run verification from an elevated PowerShell so WebDriver can launch the administrator
+executable. The E2E harness uses installed `tauri-driver` and an Edge driver matching WebView2.
 Set `MSEDGEDRIVER` to its absolute path. `node tests/e2e.mjs --live` adds real cloud
 acceptance. Tests use disposable state and apps, not your running workloads.
 

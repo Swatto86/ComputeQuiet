@@ -63,7 +63,7 @@ try {
   if(!live)assert.ok(readFileSync(path.join(temp,'provider-cwd.txt'),'utf8').startsWith(state+path.sep+'assessment-'),'Provider runs in its isolated scratch directory');
   await browser.saveScreenshot(path.join(temp,'assessment.png'));
   let select=await browser.$('select[aria-label="Preference for GqProbe"]');
-  await select.selectByAttribute('value','allow');await browser.$('#confirm').waitForDisplayed();await click('#accept');
+  await select.selectByVisibleText('Close in Game Mode');await browser.$('#confirm').waitForDisplayed();await click('#accept');
   await click('#toggle');
   assert.equal(await browser.$('#mode').getText(),'GAME MODE ON');
   assert.match(readFileSync(probeLog,'utf8'),/closed:/,'OS accepted normal close');

@@ -2,6 +2,8 @@
 
 - Product: GameQuiet, a Windows tray utility to free gaming resources and restore the
   workloads afterwards. Name chosen for the initial implementation; version 0.1.0.
+- Windows launches require administrator rights through the executable manifest;
+  run the real-webview verification from an elevated shell.
 - Origin is the only remote: `https://origin.cursor.com/swatto/gamequiet.git`. Work on
   `main`, commit and push verified units. No GitHub repository or release assets.
 - Use Codex/Claude CLI cloud authentication in the same manner as Eir; do not extract

@@ -33,10 +33,17 @@ State is `%LOCALAPPDATA%\GameQuiet\state.json`. `GAMEQUIET_DATA_DIR` selects a s
 state directory for portable use and testing. Closing the window hides it; Restore and
 quit refuses to exit while recovery remains. A forced termination or reboot leaves the
 journal for explicit restoration on next launch. Single-instance enforcement protects
-the installed session. No system service, elevation, autostart or updater is installed
+the installed session. The Windows executable manifest requires administrator elevation
+before launch (debug and release); child processes inherit elevation. Existing process
+ownership and protection rules still apply. No system service, autostart or updater is installed
 in this initial local release; source is hosted on Cursor Origin, not GitHub.
 
 Verification uses Rust policy/persistence tests and WebdriverIO through tauri-driver on
+the elevated debug build. Debug builds forward WebDriver's browser arguments and data
+directory through the WebView2 API because elevated WebView2 ignores environment
+overrides. This forwarding is compiled out of release builds; release acceptance uses
+the embedded manifest and a normal elevated launch.
+The UI and process restoration tests run on
 the real Windows WebView2 binary. Disposable executables exercise the normal close and
 restore adapter. The Ollama test uses a disposable server executable in an isolated
 installation directory and mocks only HTTP; the production process checks and stop/
