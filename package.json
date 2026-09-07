@@ -1,0 +1,14 @@
+{
+  "name": "gamequiet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "webdriverio": "9.31.6"
+  }
+}

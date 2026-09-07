@@ -1,0 +1,68 @@
+const { invoke } = window.__TAURI__.core;
+const $ = id => document.getElementById(id);
+let view, busy = false;
+function text(tag, value, className) { const el=document.createElement(tag); el.textContent=value; if(className)el.className=className; return el; }
+function preference(w) { return view.state.rules.find(r=>r.key===`${w.kind}|${w.exe.toLowerCase()}|${w.hash}`)?.preference || 'ask'; }
+function status(message,error=false) { $('status').textContent=message; $('status').className=error?'error':busy?'busy':''; }
+function lock(value) { busy=value; document.querySelectorAll('button:not(.tab),select,input').forEach(el=>el.disabled=value); }
+async function run(command,args={},message='Working…') {
+  if(busy)return;
+  lock(true);status(message);
+  try { const result=await invoke(command,args); if(result)render(result); }
+  catch(error) { status(String(error),true); }
+  finally { lock(false); $('status').classList.remove('busy'); if(view) $('toggle').textContent=view.state.active?'Turn off & restore':'Turn on Game Mode'; }
+}
+function confirm(title,copy,action) {
+  $('confirm-title').textContent=title; $('confirm-copy').textContent=copy;
+  $('accept').onclick=()=>{ $('confirm').close();action(); };
+  $('confirm').showModal();
+}
+function render(next) {
+  view=next;const active=view.state.active;
+  $('mode').textContent=active?'GAME MODE ON':'GAME MODE OFF';$('mode').classList.toggle('on',active);
+  $('headline').innerHTML=active?'Room to play.<br>Recovery is saved.':'Less background.<br>More game.';
+  $('description').textContent=active?'Your stopped workloads are recorded. Turn Game Mode off to restore them.':'Review what’s using resources, quiet the apps you choose, then put them back when you’re done.';
+  $('toggle').textContent=active?'Turn off & restore':'Turn on Game Mode';
+  status(view.status);
+  $('provider').value=view.state.settings.provider;$('model').value=view.state.settings.model;
+  $('cli-path').value=view.state.settings.cli_path||'';
+  $('automatic').checked=view.state.settings.automatic;$('interrupt').checked=view.state.settings.interrupt_ollama;
+  $('count').textContent=`${view.snapshot.workloads.length} workloads · ${view.snapshot.workloads.filter(w=>!w.blocked).length} with a supported restore path`;
+  $('summary').hidden=!view.summary;$('summary').textContent=view.summary;
+  $('warnings').replaceChildren(...view.snapshot.warnings.map(w=>text('p',w,'footnote')));
+  $('empty').hidden=view.snapshot.workloads.length>0;
+  $('rows').replaceChildren(...view.snapshot.workloads.map(w=>{
+    const row=text('article','','row'+(w.blocked?' protected':''));row.dataset.id=w.id;
+    const label=text('div','');label.append(text('h4',w.name),text('small',w.product||w.publisher||'Unknown publisher'));row.append(label);
+    const metrics=text('div','','metrics');
+    for(const [value,name] of [[`${w.cpu.toFixed(1)}%`,'CPU'],[`${w.gpu.toFixed(0)}%`,'GPU'],[`${Math.round(w.memory_mb)}`,'MB RAM']]) {const m=text('div','','metric');m.append(text('strong',value),text('span',name));metrics.append(m);}row.append(metrics);
+    if(w.blocked) row.append(text('span','KEPT RUNNING','protected-label'));
+    else {
+      const select=document.createElement('select');select.setAttribute('aria-label',`Preference for ${w.name}`);select.dataset.preference=w.id;
+      for(const [value,label] of [['ask','Review first'],['allow','Allow in Game Mode'],['keep','Always keep']]) {const option=text('option',label);option.value=value;select.append(option);}
+      select.value=preference(w);select.onchange=()=>{const value=select.value;select.value=preference(w);const apply=()=>run('set_preference',{id:w.id,preference:value},'Saving preference…');if(value==='allow')confirm(`Allow ${w.name}?`,w.kind==='ollama'?'Game Mode will stop Ollama and interrupt any active generation. Restoration restarts the server and reloads models, but cannot recover an interrupted request. You must also enable Ollama interruption in Settings.':'Game Mode will ask this app to close normally. Save prompts are respected. Restoration launches its executable; restoring documents, tabs and sessions depends on the app itself.',apply);else apply();};row.append(select);
+    }
+    const advice=view.advice.find(a=>a.id===w.id);const reason=text('div','','reason');
+    if(advice)reason.append(text('em',`${advice.recommendation.toUpperCase()} · ${advice.confidence}%`),text('span',advice.reason));
+    else reason.textContent=w.blocked || (w.kind==='ollama'?`${w.models.length} loaded model(s). Stops local inference and releases GPU memory.`:'Normal close only. Save prompts are respected; no force termination.');
+    if(w.blocked&&advice)reason.append(text('div',w.blocked));
+    row.append(reason);return row;
+  }));
+  $('recovery').replaceChildren(...view.state.recovery.map(r=>{
+    const el=text('article','','recovery-item');el.append(text('h4',`${r.workload.name} · ${r.status.replaceAll('_',' ')}`),text('p',r.error||'Restore details are safely recorded.'));
+    const button=text('button','I restored this manually');button.onclick=()=>confirm('Clear this recovery entry?','Confirm only after you have restored this workload yourself. GameQuiet will stop trying to restore this entry.',()=>run('confirm_restored',{id:r.workload.id}));el.append(button);return el;
+  }));
+  if(!view.state.recovery.length)$('recovery').append(text('p','Nothing waiting to be restored.','footnote'));
+  $('activity').replaceChildren(...view.state.history.map(line=>{const split=line.indexOf(' | ');const at=new Date(Number(line.slice(0,split))*1000);return text('li',`${at.toLocaleString()} — ${line.slice(split+3)}`);}));
+}
+document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('selected',b===button));for(const name of ['workloads','settings','history'])$(name).hidden=name!==button.dataset.tab;});
+$('cancel').onclick=()=>$('confirm').close();
+$('hide').onclick=()=>window.__TAURI__.window.getCurrentWindow().close();
+$('scan').onclick=()=>run('scan',{},'Sampling CPU, GPU, memory and I/O…');
+$('assess').onclick=()=>run('assess',{},'Taking a fresh snapshot and asking your cloud CLI. This can take a few minutes…');
+$('toggle').onclick=()=>run(view?.state.active?'restore':'enable',{},view?.state.active?'Restoring your workloads…':'Rechecking identities and saving recovery before applying Game Mode…');
+$('restore').onclick=()=>run('restore',{},'Restoring workloads…');
+$('save').onclick=()=>run('save_settings',{settings:{provider:$('provider').value,model:$('model').value.trim(),cli_path:$('cli-path').value.trim(),automatic:$('automatic').checked,interrupt_ollama:$('interrupt').checked}},'Saving settings…');
+$('quit').onclick=()=>run('exit_app',{},'Restoring and quitting…');
+window.__TAURI__.event.listen('updated',event=>render(event.payload));
+invoke('get_state').then(render).then(()=>invoke('ready')).catch(error=>status(String(error),true));
