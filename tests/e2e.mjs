@@ -52,6 +52,23 @@ try {
   await click('#scan');
   const names=await browser.$$('#rows h4').map(el=>el.getText());assert.ok(names.includes('GqProbe'),'Real disposable app appears in scan');
   const snapshot=await browser.execute(()=>window.__TAURI__.core.invoke('get_state'));
+  await browser.setWindowSize(780,760);
+  const layout=await browser.execute(()=>{
+    const selects=[...document.querySelectorAll('#rows select')];
+    const canvas=document.createElement('canvas').getContext('2d');
+    return {
+      count:selects.length,
+      fits:selects.every(el=>{const s=getComputedStyle(el);canvas.font=s.font;return Math.max(...[...el.options].map(o=>canvas.measureText(o.text).width))+parseFloat(s.paddingLeft)+parseFloat(s.paddingRight)+24<=el.clientWidth;}),
+      overflow:document.documentElement.scrollWidth>innerWidth,
+      order:[...document.querySelectorAll('#rows .row')].map(row=>{const value=row.querySelector('select')?.value;return value==='ask'?0:value==='allow'?1:2;})
+    };
+  });
+  assert.ok(layout.count>0,'Layout check includes real dropdowns');
+  assert.ok(layout.fits&&!layout.overflow,`Dropdown labels fit at minimum window width: ${JSON.stringify(layout)}`);
+  assert.deepEqual(layout.order,[...layout.order].sort((a,b)=>a-b),'Review cards precede close cards and kept-running cards');
+  await browser.$('select[aria-label="Preference for GqProbe"]').scrollIntoView();
+  await browser.saveScreenshot(path.join(temp,'narrow-workloads.png'));
+  await browser.setWindowSize(1080,760);
   for(const w of snapshot.snapshot.workloads)assert.ok(w.cpu>=0&&w.cpu<=100,`CPU out of range for ${w.name}`);
   const protectedApp=snapshot.snapshot.workloads.find(w=>w.name.toLowerCase()==='gamequiet');
   assert.ok(protectedApp?.blocked,'App protects itself');

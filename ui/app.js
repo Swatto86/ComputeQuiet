@@ -31,7 +31,8 @@ function render(next) {
   $('summary').hidden=!view.summary;$('summary').textContent=view.summary;
   $('warnings').replaceChildren(...view.snapshot.warnings.map(w=>text('p',w,'footnote')));
   $('empty').hidden=view.snapshot.workloads.length>0;
-  $('rows').replaceChildren(...view.snapshot.workloads.map(w=>{
+  const priority=w=>w.blocked||preference(w)==='keep'?2:preference(w)==='ask'?0:1;
+  $('rows').replaceChildren(...view.snapshot.workloads.toSorted((a,b)=>priority(a)-priority(b)).map(w=>{
     const row=text('article','','row'+(w.blocked?' protected':''));row.dataset.id=w.id;
     const label=text('div','');label.append(text('h4',w.name),text('small',w.product||w.publisher||'Unknown publisher'));row.append(label);
     const metrics=text('div','','metrics');
