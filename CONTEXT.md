@@ -20,3 +20,7 @@
   to 775 ms); persistent failure restores in-memory state to the last saved journal.
   Tested with an actual file handle denying delete sharing. Subprocess stdin/stdout
   use temporary handles to avoid pipe inheritance and unread-stdin deadlocks.
+- Test binaries carry the administrator manifest. `__COMPAT_LAYER=RunAsInvoker` lets
+  `cargo test` run unelevated for the inner loop; the WebDriver suite and the full gate
+  still need an elevated shell (launch `scripts/verify.ps1` via `Start-Process -Verb RunAs`
+  from an unsandboxed shell and read the redirected log). UAC needs the user present.
