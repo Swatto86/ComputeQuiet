@@ -25,9 +25,9 @@ recovery remains that app's responsibility.
 own authentication. CLI shell tools, MCP integrations and customisations are disabled
 for assessment. Only allowlisted process metadata crosses the cloud boundary. Structured
 results cannot name an unknown target or override local protection. The AI never supplies
-commands. Automatic filtering additionally requires an explicit, hash-bound user Allow
-rule and >=90% close recommendation. No AI is needed to restore, and approved-list mode
-works offline. Child processes are hidden and bounded by time/output limits.
+commands and never decides what is stopped: only an explicit, hash-bound user Allow
+rule selects a workload. No AI is needed to stop or restore, and choices work offline.
+Child processes are hidden and bounded by time/output limits.
 
 State is `%LOCALAPPDATA%\GameQuiet\state.json`. `GAMEQUIET_DATA_DIR` selects a separate
 state directory for portable use and testing. Closing the window hides it; Restore and

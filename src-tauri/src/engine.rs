@@ -206,11 +206,11 @@ impl Engine {
             .snapshot
             .workloads
             .iter()
-            .filter(|w| eligible(w, &self.disk, &self.advice))
+            .filter(|w| eligible(w, &self.disk))
             .cloned()
             .collect();
         if chosen.is_empty() {
-            bail!("No eligible approved workloads. Review a workload and choose Allow; for Ollama also enable interruption permission in Settings.");
+            bail!("No approved workloads are running. Choose \"Close in Game Mode\" for at least one workload; for Ollama also enable interruption permission in Settings.");
         }
         self.disk.active = true;
         self.save()?;
@@ -259,7 +259,7 @@ impl Engine {
         }
         self.disk.active = !self.disk.recovery.is_empty();
         self.status = if self.disk.active {
-            "Game Mode is on. No continuous scans or model calls run while you play."
+            "Game Mode is on. No continuous scans or model calls run while you play or build."
         } else {
             "All selected workloads had already exited. No restoration is needed."
         }
@@ -307,31 +307,23 @@ impl Engine {
     }
 }
 
-pub fn eligible(w: &Workload, disk: &DiskState, advice: &[Advice]) -> bool {
+pub fn eligible(w: &Workload, disk: &DiskState) -> bool {
     if !w.actionable() || (w.kind == "ollama" && !disk.settings.interrupt_ollama) {
         return false;
     }
-    if !disk
-        .rules
+    // Cloud advice informs the user's review; it never vetoes an explicit, hash-bound Allow.
+    disk.rules
         .iter()
         .any(|r| r.key == w.key() && r.preference == Preference::Allow)
-    {
-        return false;
-    }
-    if disk.settings.automatic {
-        advice.iter().any(|a| {
-            a.id == w.id && a.recommendation == Recommendation::Close && a.confidence >= 90
-        })
-    } else {
-        true
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn approval_and_ollama_permission_are_required_even_for_confident_ai() {
+    fn approval_and_ollama_permission_decide_eligibility_not_cloud_advice() {
+        // Regression: a hash-bound Allow used to be vetoed when cached advice said "ask".
+        // Eligibility no longer consults advice at all; only the user's choices count.
         let w = Workload {
             id: "ollama".into(),
             exe: "ollama.exe".into(),
@@ -340,29 +332,31 @@ mod tests {
             ..Default::default()
         };
         let mut disk = DiskState::default();
-        let advice = vec![Advice {
-            id: w.id.clone(),
-            recommendation: Recommendation::Close,
-            confidence: 100,
-            reason: "gpu".into(),
-        }];
-        assert!(!eligible(&w, &disk, &advice));
+        assert!(!eligible(&w, &disk));
         disk.rules.push(Rule {
             key: w.key(),
             preference: Preference::Allow,
         });
-        assert!(!eligible(&w, &disk, &advice));
+        assert!(!eligible(&w, &disk));
         disk.settings.interrupt_ollama = true;
-        assert!(eligible(&w, &disk, &advice));
-        disk.settings.automatic = true;
-        assert!(!eligible(&w, &disk, &[]));
-        assert!(eligible(&w, &disk, &advice));
+        assert!(eligible(&w, &disk));
         let mut updated = w.clone();
         updated.hash = "changed".into();
-        assert!(!eligible(&updated, &disk, &advice));
+        assert!(!eligible(&updated, &disk));
         updated = w;
         updated.blocked = "security".into();
-        assert!(!eligible(&updated, &disk, &advice));
+        assert!(!eligible(&updated, &disk));
+    }
+    #[test]
+    fn journals_from_the_advice_filter_era_still_load() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("state.json"),
+            br#"{"version":1,"settings":{"provider":"codex","model":"","cli_path":"","automatic":true,"interrupt_ollama":true},"rules":[],"cache":[],"active":false,"recovery":[],"history":[]}"#,
+        )
+        .unwrap();
+        let engine = Engine::open(dir.path().into()).unwrap();
+        assert!(engine.disk.settings.interrupt_ollama);
     }
     #[test]
     fn journal_survives_restart_and_corrupt_state_is_not_overwritten() {

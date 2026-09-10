@@ -70,7 +70,8 @@ function Get-Snapshot {
     catch { $warnings.Add('Process I/O counters are unavailable.') }
     $rows = [Collections.Generic.List[object]]::new()
     $ollama = @($processes | Where-Object { $_.ProcessName -in @('ollama','ollama app','llama-server') -and $_.Path -and $_.Path.StartsWith(($ollamaDir + '\'), [StringComparison]::OrdinalIgnoreCase) })
-    foreach ($p in $processes | Sort-Object WorkingSet64 -Descending | Select-Object -First 80) {
+    # GameQuiet itself is always listed (as protected) so its self-protection stays visible on busy PCs.
+    foreach ($p in $processes | Sort-Object @{Expression={ $_.ProcessName -ieq 'gamequiet' }; Descending=$true}, @{Expression='WorkingSet64'; Descending=$true} | Select-Object -First 80) {
         try {
             if ($p.Id -eq $PID -or $p.Id -in $ollama.Id) { continue }
             $path = $p.Path

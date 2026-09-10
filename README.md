@@ -1,6 +1,7 @@
 # GameQuiet
 
-A Windows tray app that makes room for your game, then restores the apps it stopped.
+A Windows tray app that makes room for your game, or for demanding work such as game
+development, then restores the apps it stopped.
 
 Windows requests administrator permission before launching GameQuiet. Cancelling UAC
 leaves the app closed. Child processes, including restored apps, inherit elevation.
@@ -13,9 +14,9 @@ leaves the app closed. Child processes, including restored apps, inherit elevati
 4. **Turn on Game Mode** rechecks identities, saves recovery and applies your choices.
 5. **Turn off & restore** restarts only recorded workloads. Close the window to use the tray.
 
-The optional high-confidence filter limits your approved list to AI recommendations
-of at least 90%. Cached advice expires after 24 hours; approved-list mode works offline.
-Nothing runs continuously while you game. No FPS improvement is promised: compare the
+Cloud advice only informs your review; your explicit choices decide what is stopped, and
+they work offline. Cached advice expires after 24 hours. Nothing runs continuously while
+you game or build. No FPS improvement is promised: compare the
 same scene before/after, especially on systems already limited by game CPU work.
 
 Ollama's active generations are interrupted. Its server and loaded models can be restored,

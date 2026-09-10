@@ -114,14 +114,14 @@ pub enum Provider {
     Claude,
 }
 
+// Unknown fields are tolerated so journals written by earlier versions (which stored the
+// removed `automatic` advice filter) keep loading; the field is dropped on the next save.
 #[derive(Clone, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct Settings {
     pub provider: Provider,
     pub model: String,
     #[serde(default)]
     pub cli_path: String,
-    pub automatic: bool,
     pub interrupt_ollama: bool,
 }
 
