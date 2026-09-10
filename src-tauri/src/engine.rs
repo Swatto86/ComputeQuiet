@@ -214,6 +214,7 @@ impl Engine {
         }
         self.disk.active = true;
         self.save()?;
+        let mut gone: Vec<String> = vec![];
         for workload in chosen {
             self.disk.recovery.push(Recovery {
                 workload: workload.clone(),
@@ -246,6 +247,9 @@ impl Engine {
             if matches!(result, Ok(false)) {
                 self.disk.recovery.pop();
             }
+            if result.is_ok() {
+                gone.push(workload.id.clone());
+            }
             self.log(format!(
                 "{}: {}",
                 workload.name,
@@ -257,13 +261,16 @@ impl Engine {
             ));
             self.save()?;
         }
+        // A stopped app must not remain listed with the measurements it had while running.
+        // The snapshot is not retaken: the remaining rows keep their pre-Game-Mode readings,
+        // which the interface labels, so no continuous scanning happens during a session.
+        self.snapshot.workloads.retain(|w| !gone.contains(&w.id));
         self.disk.active = !self.disk.recovery.is_empty();
         self.status = if self.disk.active {
-            "Game Mode is on. No continuous scans or model calls run while you play or build."
+            active_status(&self.disk.recovery)
         } else {
-            "All selected workloads had already exited. No restoration is needed."
-        }
-        .into();
+            "All selected workloads had already exited. No restoration is needed.".into()
+        };
         self.save()
     }
     pub fn restore(&mut self) -> Result<()> {
@@ -291,7 +298,7 @@ impl Engine {
         self.status = if self.disk.active {
             "Some workloads need attention. Their recovery details are saved; retry Restore."
         } else {
-            "Game Mode is off. Stopped applications have been restored."
+            "Game Mode is off. Stopped applications have been restored. Scan for a fresh snapshot."
         }
         .into();
         self.save()
@@ -305,6 +312,22 @@ impl Engine {
         self.log("User confirmed a workload was restored manually.".into());
         self.save()
     }
+}
+
+/// A workload that would not close is still running, so saying only that Game Mode is on
+/// would misreport the result. The count sends the user to the recovery journal for detail.
+fn active_status(recovery: &[Recovery]) -> String {
+    let attention = recovery
+        .iter()
+        .filter(|r| r.status == "needs_attention")
+        .count();
+    if attention == 0 {
+        return "Game Mode is on. No continuous scans or model calls run while you play or build."
+            .into();
+    }
+    format!(
+        "Game Mode is on, but {attention} workload(s) would not close and are still running. Open Activity & recovery for details."
+    )
 }
 
 pub fn eligible(w: &Workload, disk: &DiskState) -> bool {
@@ -346,6 +369,19 @@ mod tests {
         updated = w;
         updated.blocked = "security".into();
         assert!(!eligible(&updated, &disk));
+    }
+    #[test]
+    fn a_workload_that_would_not_close_is_reported_not_hidden() {
+        let entry = |status: &str| Recovery {
+            workload: Workload::default(),
+            status: status.into(),
+            error: String::new(),
+        };
+        assert!(active_status(&[entry("stopped")]).contains("No continuous scans"));
+        let mixed = active_status(&[entry("stopped"), entry("needs_attention")]);
+        assert!(mixed.contains("1 workload(s) would not close"), "{mixed}");
+        let both = active_status(&[entry("needs_attention"), entry("needs_attention")]);
+        assert!(both.contains("2 workload(s) would not close"), "{both}");
     }
     #[test]
     fn journals_from_the_advice_filter_era_still_load() {

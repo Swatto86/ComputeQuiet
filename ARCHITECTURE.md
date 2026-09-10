@@ -3,7 +3,13 @@
 Windows-only Tauri v2 tray app with static HTML/CSS/JavaScript. Rust owns policy,
 settings, CLI requests and a write-ahead recovery journal. The interface has no shell
 or filesystem permissions. Blocking operations run off the UI thread, serialised per
-application instance. The tray remains idle between user actions.
+application instance. The tray remains idle between user actions, and its menu names the
+current Game Mode state and the action separately so a toggle is never ambiguous.
+
+Enabling Game Mode removes the workloads it confirmed stopped from the snapshot and leaves
+the rest with their pre-session measurements, which the interface labels as such. No new
+scan is taken, so a session still performs no continuous measurement. A workload that
+refused to close stays listed, is marked as still running, and is counted in the status.
 
 `model.rs` is the IPC/state contract. `engine.rs` validates preferences, caches advice
 for 24 hours by executable path + SHA-256, and records each stop before executing it.

@@ -27,7 +27,7 @@ function render(next) {
   $('provider').value=view.state.settings.provider;$('model').value=view.state.settings.model;
   $('cli-path').value=view.state.settings.cli_path||'';
   $('interrupt').checked=view.state.settings.interrupt_ollama;
-  $('count').textContent=`${view.snapshot.workloads.length} workloads · ${view.snapshot.workloads.filter(w=>!w.blocked).length} with a supported restore path`;
+  $('count').textContent=`${view.snapshot.workloads.length} workloads · ${view.snapshot.workloads.filter(w=>!w.blocked).length} with a supported restore path${active?' · measured before Game Mode started':''}`;
   $('summary').hidden=!view.summary;$('summary').textContent=view.summary;
   $('warnings').replaceChildren(...view.snapshot.warnings.map(w=>text('p',w,'footnote')));
   $('empty').hidden=view.snapshot.workloads.length>0;
@@ -44,7 +44,9 @@ function render(next) {
       select.value=preference(w);select.onchange=()=>{const value=select.value;select.value=preference(w);const apply=()=>run('set_preference',{id:w.id,preference:value},'Saving preference…');if(value==='allow')confirm(`Close ${w.name} in Game Mode?`,w.kind==='ollama'?'Game Mode will stop Ollama and interrupt any active generation. Restoration restarts the server and reloads models, but cannot recover an interrupted request. You must also enable Ollama interruption in Settings.':'Game Mode will ask this app to close normally. Save prompts are respected. Restoration launches its executable; restoring documents, tabs and sessions depends on the app itself.',apply);else apply();};row.append(select);
     }
     const advice=view.advice.find(a=>a.id===w.id);const reason=text('div','','reason');
-    if(advice)reason.append(text('em',`${advice.recommendation.toUpperCase()} · ${advice.confidence}%`),text('span',advice.reason));
+    const failed=view.state.recovery.find(r=>r.workload.id===w.id&&r.status==='needs_attention');
+    if(failed)reason.append(text('em','STILL RUNNING'),text('span',failed.error));
+    else if(advice)reason.append(text('em',`${advice.recommendation.toUpperCase()} · ${advice.confidence}%`),text('span',advice.reason));
     else reason.textContent=w.blocked || (w.kind==='ollama'?`${w.models.length} loaded model(s). Stops local inference and releases GPU memory.`:'Normal close only. Save prompts are respected; no force termination.');
     if(w.blocked&&advice)reason.append(text('div',w.blocked));
     row.append(reason);return row;

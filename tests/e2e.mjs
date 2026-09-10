@@ -86,6 +86,10 @@ try {
   assert.match(readFileSync(probeLog,'utf8'),/closed:/,'OS accepted normal close');
   const journal=JSON.parse(readFileSync(path.join(state,'state.json'),'utf8'));
   assert.equal(journal.recovery.length,1);assert.equal(journal.recovery[0].status,'stopped');
+  const listed=await browser.$$('#rows h4').map(el=>el.getText());
+  assert.ok(listed.length>0,'Rows still render once Game Mode is on, so the check below cannot pass vacuously');
+  assert.ok(!listed.includes('GqProbe'),`A stopped app must leave the list: ${JSON.stringify(listed)}`);
+  assert.match(await browser.$('#count').getText(),/measured before Game Mode started/,'Remaining measurements are labelled as pre-session');
   const running=await browser.execute(()=>window.__TAURI__.core.invoke('get_state'));
   process.kill(running.process_id); // Only the app started by this isolated WebDriver session.
   await browser.deleteSession().catch(()=>{});browser=null;

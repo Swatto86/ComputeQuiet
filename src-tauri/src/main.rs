@@ -9,13 +9,36 @@ use engine::Engine;
 use model::{Preference, Settings, View};
 use std::sync::{Arc, Mutex};
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     Emitter, Manager, State,
 };
 
 #[derive(Clone)]
 struct Shared(Arc<Mutex<Engine>>);
+
+/// The tray menu is often the only visible part of the app, so it names the current state
+/// and the action separately. A single "Toggle" item said neither.
+struct TrayMenu {
+    status: MenuItem<tauri::Wry>,
+    toggle: MenuItem<tauri::Wry>,
+}
+
+fn status_label(active: bool) -> &'static str {
+    if active {
+        "Game Mode: ON"
+    } else {
+        "Game Mode: OFF"
+    }
+}
+
+fn toggle_label(active: bool) -> &'static str {
+    if active {
+        "Turn off & restore"
+    } else {
+        "Turn on Game Mode"
+    }
+}
 
 fn show(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -31,6 +54,10 @@ fn tray_state(app: &tauri::AppHandle, active: bool) {
         } else {
             "GameQuiet — Game Mode OFF"
         }));
+    }
+    if let Some(menu) = app.try_state::<TrayMenu>() {
+        let _ = menu.status.set_text(status_label(active));
+        let _ = menu.toggle.set_text(toggle_label(active));
     }
 }
 
@@ -155,10 +182,18 @@ fn main() {
             let engine = Engine::open(root)?;
             let active = engine.disk.active;
             app.manage(Shared(Arc::new(Mutex::new(engine))));
+            let status =
+                MenuItem::with_id(app, "status", status_label(active), false, None::<&str>)?;
             let open = MenuItem::with_id(app, "open", "Open GameQuiet", true, None::<&str>)?;
-            let toggle = MenuItem::with_id(app, "toggle", "Toggle Game Mode", true, None::<&str>)?;
+            let toggle =
+                MenuItem::with_id(app, "toggle", toggle_label(active), true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "Restore and quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &toggle, &exit])?;
+            let separator = PredefinedMenuItem::separator(app)?;
+            let menu = Menu::with_items(app, &[&status, &separator, &open, &toggle, &exit])?;
+            app.manage(TrayMenu {
+                status: status.clone(),
+                toggle: toggle.clone(),
+            });
             let icon = app
                 .default_window_icon()
                 .ok_or("Application icon missing")?
@@ -169,6 +204,7 @@ fn main() {
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show(app),
+                    "status" => {}
                     "toggle" | "exit" => {
                         let app = app.clone();
                         let quitting = event.id.as_ref() == "exit";
@@ -223,5 +259,24 @@ fn main() {
         let mut cmd = process::command("pwsh.exe");
         cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
         let _ = process::run(cmd, &message, std::time::Duration::from_secs(120));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn the_tray_names_the_current_state_and_the_action_separately() {
+        for active in [true, false] {
+            assert_ne!(status_label(active), toggle_label(active));
+        }
+        assert!(status_label(true).contains("ON") && status_label(false).contains("OFF"));
+        // The action item must describe what pressing it does, not the state it is in.
+        assert!(toggle_label(true).contains("off"), "{}", toggle_label(true));
+        assert!(
+            toggle_label(false).contains("on"),
+            "{}",
+            toggle_label(false)
+        );
     }
 }
