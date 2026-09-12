@@ -11,6 +11,7 @@ pub struct Engine {
     pub disk: DiskState,
     saved: DiskState,
     pub snapshot: Snapshot,
+    pub sampled_at: u64,
     pub advice: Vec<Advice>,
     pub summary: String,
     pub status: String,
@@ -26,7 +27,7 @@ impl Engine {
     pub fn open(root: PathBuf) -> Result<Self> {
         std::fs::create_dir_all(&root)?;
         let file = root.join("state.json");
-        let disk: DiskState = if file.exists() {
+        let mut disk: DiskState = if file.exists() {
             serde_json::from_slice(&std::fs::read(file)?).context("Saved state is unreadable. It has been preserved; restore from your backup before continuing.")?
         } else {
             DiskState::default()
@@ -34,17 +35,18 @@ impl Engine {
         if disk.version != 1 {
             bail!("Unsupported state version. Update GameQuiet; existing state was preserved.");
         }
-        let status = if disk.active || !disk.recovery.is_empty() {
-            "A Game Mode session is saved. Use Restore to finish it."
+        disk.active |= !disk.recovery.is_empty();
+        let status = if disk.active {
+            active_status(&disk.recovery)
         } else {
-            "Ready. Scan to see what is using resources."
-        }
-        .into();
+            "Ready. Scan to see what is using resources.".into()
+        };
         Ok(Self {
             root,
             saved: disk.clone(),
             disk,
             snapshot: Snapshot::default(),
+            sampled_at: 0,
             advice: vec![],
             summary: String::new(),
             status,
@@ -55,6 +57,8 @@ impl Engine {
             process_id: std::process::id(),
             state: self.disk.clone(),
             snapshot: self.snapshot.clone(),
+            sampled_at: self.sampled_at,
+            session_label: session_label(&self.disk).into(),
             advice: self.advice.clone(),
             summary: self.summary.clone(),
             busy: false,
@@ -124,12 +128,18 @@ impl Engine {
             })
             .collect();
         self.snapshot = snapshot;
-        self.status = "Scan complete. Preferences are tied to the exact executable; updates need a new review.".into();
+        self.sampled_at = now();
+        self.summary.clear();
+        self.status = if self.disk.active {
+            format!("Scan complete. {}", active_status(&self.disk.recovery))
+        } else {
+            "Scan complete. Preferences are tied to the exact executable; updates need a new review.".into()
+        };
         Ok(())
     }
     pub fn assess(&mut self) -> Result<()> {
         if self.disk.active {
-            bail!("Turn Game Mode off before running a cloud assessment");
+            bail!("End the quiet session before running a cloud assessment");
         }
         self.scan()?;
         let result = ai::assess(&self.disk.settings, &self.snapshot, &self.root)?;
@@ -172,6 +182,7 @@ impl Engine {
             self.disk.settings = old;
             return Err(e);
         }
+        self.status = "Settings saved.".into();
         Ok(())
     }
     pub fn preference(&mut self, id: &str, preference: Preference) -> Result<()> {
@@ -195,6 +206,7 @@ impl Engine {
             self.disk.rules = old;
             return Err(e);
         }
+        self.status = "Preference saved.".into();
         Ok(())
     }
     pub fn enable(&mut self) -> Result<()> {
@@ -210,11 +222,10 @@ impl Engine {
             .cloned()
             .collect();
         if chosen.is_empty() {
-            bail!("No approved workloads are running. Choose \"Close in Game Mode\" for at least one workload; for Ollama also enable interruption permission in Settings.");
+            bail!("No approved workloads are running. Choose \"Close for session\" for at least one workload; for Ollama also enable interruption permission in Settings.");
         }
         self.disk.active = true;
         self.save()?;
-        let mut gone: Vec<String> = vec![];
         for workload in chosen {
             self.disk.recovery.push(Recovery {
                 workload: workload.clone(),
@@ -248,7 +259,7 @@ impl Engine {
                 self.disk.recovery.pop();
             }
             if result.is_ok() {
-                gone.push(workload.id.clone());
+                self.snapshot.workloads.retain(|w| w.id != workload.id);
             }
             self.log(format!(
                 "{}: {}",
@@ -261,10 +272,6 @@ impl Engine {
             ));
             self.save()?;
         }
-        // A stopped app must not remain listed with the measurements it had while running.
-        // The snapshot is not retaken: the remaining rows keep their pre-Game-Mode readings,
-        // which the interface labels, so no continuous scanning happens during a session.
-        self.snapshot.workloads.retain(|w| !gone.contains(&w.id));
         self.disk.active = !self.disk.recovery.is_empty();
         self.status = if self.disk.active {
             active_status(&self.disk.recovery)
@@ -274,6 +281,7 @@ impl Engine {
         self.save()
     }
     pub fn restore(&mut self) -> Result<()> {
+        self.clear_snapshot();
         // Reverse application order, retaining every failed entry for retry and crash recovery.
         for index in (0..self.disk.recovery.len()).rev() {
             let workload = self.disk.recovery[index].workload.clone();
@@ -295,12 +303,7 @@ impl Engine {
             self.save()?;
         }
         self.disk.active = !self.disk.recovery.is_empty();
-        self.status = if self.disk.active {
-            "Some workloads need attention. Their recovery details are saved; retry Restore."
-        } else {
-            "Game Mode is off. Stopped applications have been restored. Scan for a fresh snapshot."
-        }
-        .into();
+        self.status = self.recovery_status();
         self.save()
     }
     pub fn forget_restored(&mut self, id: &str) -> Result<()> {
@@ -310,23 +313,50 @@ impl Engine {
         self.disk.recovery.retain(|r| r.workload.id != id);
         self.disk.active = !self.disk.recovery.is_empty();
         self.log("User confirmed a workload was restored manually.".into());
+        self.clear_snapshot();
+        self.status = self.recovery_status();
         self.save()
+    }
+    fn clear_snapshot(&mut self) {
+        self.snapshot = Snapshot::default();
+        self.sampled_at = 0;
+        self.advice.clear();
+        self.summary.clear();
+    }
+    fn recovery_status(&self) -> String {
+        if self.disk.active {
+            active_status(&self.disk.recovery)
+        } else {
+            "Session ended. No recovery entries remain. Scan for a fresh snapshot.".into()
+        }
     }
 }
 
-/// A workload that would not close is still running, so saying only that Game Mode is on
-/// would misreport the result. The count sends the user to the recovery journal for detail.
-fn active_status(recovery: &[Recovery]) -> String {
-    let attention = recovery
-        .iter()
-        .filter(|r| r.status == "needs_attention")
-        .count();
-    if attention == 0 {
-        return "Game Mode is on. No continuous scans or model calls run while you play or build."
-            .into();
+pub fn session_label(disk: &DiskState) -> &'static str {
+    if !disk.active && disk.recovery.is_empty() {
+        return "READY";
     }
+    let stopped = disk
+        .recovery
+        .iter()
+        .filter(|r| r.status == "stopped")
+        .count();
+    if stopped == 0 {
+        "NEEDS ATTENTION"
+    } else if stopped < disk.recovery.len() {
+        "PARTIALLY QUIET"
+    } else {
+        "QUIET SESSION"
+    }
+}
+
+// Journal outcomes are historical. Errors (including a timeout or partial stop) do not
+// establish whether a process is currently running; only a fresh scan can show that.
+fn active_status(recovery: &[Recovery]) -> String {
+    let stopped = recovery.iter().filter(|r| r.status == "stopped").count();
+    let attention = recovery.len() - stopped;
     format!(
-        "Game Mode is on, but {attention} workload(s) would not close and are still running. Open Activity & recovery for details."
+        "Saved session: {stopped} confirmed stops, {attention} unconfirmed or failed actions. Review Activity & recovery; restore to finish. No continuous monitoring runs."
     )
 }
 
@@ -343,6 +373,32 @@ pub fn eligible(w: &Workload, disk: &DiskState) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn session_labels_describe_results_not_just_the_active_flag() {
+        for (statuses, expected) in [
+            (vec![], "NEEDS ATTENTION"),
+            (vec!["pending"], "NEEDS ATTENTION"),
+            (vec!["needs_attention"], "NEEDS ATTENTION"),
+            (vec!["restore_failed"], "NEEDS ATTENTION"),
+            (vec!["stopped"], "QUIET SESSION"),
+            (vec!["stopped", "needs_attention"], "PARTIALLY QUIET"),
+        ] {
+            let mut disk = DiskState {
+                active: true,
+                ..Default::default()
+            };
+            disk.recovery = statuses
+                .into_iter()
+                .map(|status| Recovery {
+                    workload: Workload::default(),
+                    status: status.into(),
+                    error: String::new(),
+                })
+                .collect();
+            assert_eq!(session_label(&disk), expected);
+        }
+        assert_eq!(session_label(&DiskState::default()), "READY");
+    }
     #[test]
     fn approval_and_ollama_permission_decide_eligibility_not_cloud_advice() {
         // Regression: a hash-bound Allow used to be vetoed when cached advice said "ask".
@@ -377,11 +433,53 @@ mod tests {
             status: status.into(),
             error: String::new(),
         };
-        assert!(active_status(&[entry("stopped")]).contains("No continuous scans"));
+        assert!(active_status(&[entry("stopped")]).contains("1 confirmed stop"));
         let mixed = active_status(&[entry("stopped"), entry("needs_attention")]);
-        assert!(mixed.contains("1 workload(s) would not close"), "{mixed}");
+        assert!(mixed.contains("1 unconfirmed"), "{mixed}");
         let both = active_status(&[entry("needs_attention"), entry("needs_attention")]);
-        assert!(both.contains("2 workload(s) would not close"), "{both}");
+        assert!(both.contains("0 confirmed stops"), "{both}");
+        assert!(
+            !both.contains("still running"),
+            "A failed command cannot establish current process state"
+        );
+        assert!(active_status(&[entry("restore_failed")]).contains("1 unconfirmed"));
+    }
+    #[test]
+    fn clearing_last_recovery_updates_status_and_invalidates_old_measurements() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::open(dir.path().into()).unwrap();
+        engine.disk.active = true;
+        engine.disk.recovery.push(Recovery {
+            workload: Workload {
+                id: "test".into(),
+                ..Default::default()
+            },
+            status: "needs_attention".into(),
+            error: String::new(),
+        });
+        engine.snapshot.workloads.push(Workload::default());
+        engine.status = "Game Mode is on".into();
+        engine.save().unwrap();
+        engine.forget_restored("test").unwrap();
+        assert!(!engine.disk.active);
+        assert!(!engine.status.contains("is on"));
+        assert!(engine.snapshot.workloads.is_empty());
+    }
+    #[test]
+    fn successful_edits_replace_previous_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::open(dir.path().into()).unwrap();
+        engine.status = "Previous operation failed".into();
+        engine.settings(Settings::default()).unwrap();
+        assert_eq!(engine.status, "Settings saved.");
+        engine.snapshot.workloads.push(Workload {
+            id: "test".into(),
+            kind: "close".into(),
+            hash: "abc".into(),
+            ..Default::default()
+        });
+        engine.preference("test", Preference::Keep).unwrap();
+        assert_eq!(engine.status, "Preference saved.");
     }
     #[test]
     fn journals_from_the_advice_filter_era_still_load() {

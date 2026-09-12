@@ -1,27 +1,27 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GameQuiet</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ComputeQuiet</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script></head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">G</span><div><h1>GameQuiet</h1><p>Make room for your game, or for building one.</p></div></div><div class="actions"><button id="hide" class="link">Hide to tray</button><span id="mode" class="pill">GAME MODE OFF</span></div></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">C</span><div><h1>ComputeQuiet</h1><p>Resources for whatever comes next.</p></div></div><div class="actions"><button id="hide" class="link">Hide to tray</button><span id="mode" class="pill">READY</span></div></header>
 <main>
-<section class="hero"><div><p class="eyebrow">YOUR PC, READY TO PLAY</p><h2 id="headline">Less background.<br>More game.</h2><p id="description">Review what’s using resources, quiet the apps you choose, then put them back when you’re done. Works for playing or for demanding work like game development.</p></div><div class="hero-action"><button id="toggle" class="primary">Turn on Game Mode</button><small>Only approved apps. Recovery saved first.</small></div></section>
+<section class="hero"><div><p class="eyebrow">GAMES · BUILDS · RENDERING · LOCAL AI</p><h2 id="headline">Make room for demanding work.</h2><p id="description">Review what’s using resources, quiet the apps you choose, then put them back when you’re done. Works for playing or for demanding work like game development.</p></div><div class="hero-action"><button id="toggle" class="primary">Start quiet session</button><small>Only approved apps. Recovery saved first.</small></div></section>
 <nav aria-label="Views"><button class="tab selected" data-tab="workloads">Workloads</button><button class="tab" data-tab="settings">Settings</button><button class="tab" data-tab="history">Activity & recovery</button></nav>
 <div id="status" role="status" aria-live="polite">Starting…</div>
 <section id="workloads" class="panel">
 <div class="section-head"><div><h3>Background workloads</h3><p id="count">Scan for a fresh snapshot of your PC.</p></div><div class="actions"><button id="scan">Scan PC</button><button id="assess" class="accent">Assess with cloud AI</button></div></div>
 <p id="summary" class="summary" hidden></p><div id="warnings"></div>
-<div id="empty" class="empty"><span aria-hidden="true">◎</span><h3>Start with a snapshot</h3><p>GameQuiet checks CPU, GPU, memory and I/O.<br>Nothing is closed until you turn on Game Mode.</p></div>
+<div id="empty" class="empty"><span aria-hidden="true">◎</span><h3>Start with a snapshot</h3><p>ComputeQuiet checks CPU, GPU, memory and I/O.<br>Nothing is closed until you start a quiet session.</p></div>
 <div id="rows"></div>
 <p class="footnote">CPU is a short sample across all cores. GPU is the busiest engine per process. I/O includes disk and other process I/O. Publisher names are application metadata, not verified signatures.</p>
 </section>
 <section id="settings" class="panel" hidden><h3>Cloud assessment</h3><p>Uses the existing login in your native Codex or Claude CLI. Credentials stay with the CLI.</p>
 <div class="form-grid"><label>Provider<select id="provider"><option value="codex">Codex CLI</option><option value="claude">Claude CLI</option></select></label><label>Model <span class="muted">optional</span><input id="model" placeholder="CLI default" maxlength="128" autocomplete="off"></label></div>
 <label>CLI executable <span class="muted">optional, for a custom installation</span><input id="cli-path" placeholder="Auto-detect the native CLI" autocomplete="off"></label>
-<label class="check"><input type="checkbox" id="interrupt"><span><strong>Allow Game Mode to interrupt Ollama</strong><small>Stops this account’s Ollama app, server and workers to release the GPU. Interrupted generations are lost. On restore, the app restarts Ollama and reloads the models recorded in the snapshot.</small></span></label>
+<label class="check"><input type="checkbox" id="interrupt"><span><strong>Allow a quiet session to interrupt Ollama</strong><small>Stops this account’s Ollama app, server and workers to release the GPU. Interrupted generations are lost. On restore, the app restarts Ollama and reloads the models recorded in the snapshot.</small></span></label>
 <button id="save" class="accent">Save settings</button>
-<div class="notice"><h4>What the model sees</h4><p>Process and product names, publisher metadata, resource measurements and safety restrictions. No command lines, window titles, full paths, usernames or file contents. Assessment makes a cloud request only when you click it; cached advice expires after 24 hours.</p><h4>Built for quiet</h4><p>Cloud advice only informs your review; your “Close in Game Mode” choices decide what is stopped. No continuous polling or AI calls during Game Mode. Close this window to keep GameQuiet in the tray. Games, Windows components, security, networking, audio and other protected infrastructure are kept running.</p></div>
-<p class="footnote">GameQuiet 0.1.0 · Windows · <button id="quit" class="link">Restore and quit</button></p>
+<div class="notice"><h4>What the model sees</h4><p>Process and product names, publisher metadata, resource measurements and safety restrictions. No command lines, window titles, full paths, usernames or file contents. Assessment makes a cloud request only when you click it; cached advice expires after 24 hours.</p><h4>Built for quiet</h4><p>Cloud advice only informs your review; your “Close for session” choices decide what is stopped. No continuous polling or AI calls during a quiet session. Close this window to keep ComputeQuiet in the tray. Games, Windows components, security, networking, audio and other protected infrastructure are kept running.</p></div>
+<p class="footnote">ComputeQuiet 0.2.0 · Windows · <button id="quit" class="link">Restore and quit</button></p>
 </section>
 <section id="history" class="panel" hidden><h3>Recovery journal</h3><p>Every planned stop is saved before it happens. Failed restorations remain here for retry.</p><div id="recovery"></div><button id="restore">Restore now</button><h3 class="spaced">Recent activity</h3><ol id="activity"></ol></section>
 </main>
-<dialog id="confirm"><h3 id="confirm-title">Close this app in Game Mode?</h3><p id="confirm-copy"></p><div class="actions"><button id="cancel">Cancel</button><button id="accept" class="primary">Confirm</button></div></dialog>
+<dialog id="confirm"><h3 id="confirm-title">Close this app for a quiet session?</h3><p id="confirm-copy"></p><div class="actions"><button id="cancel">Cancel</button><button id="accept" class="primary">Confirm</button></div></dialog>
 </body></html>

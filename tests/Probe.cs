@@ -10,7 +10,10 @@ public class Probe : Form {
         Controls.Add(new Label { Text = "Disposable verification app. Safe to close.", Dock = DockStyle.Fill });
         for (int i=0;i<memory.Length;i+=4096) memory[i]=1;
         Shown += delegate { File.AppendAllText(Log, "started:" + System.Diagnostics.Process.GetCurrentProcess().Id + Environment.NewLine); };
-        FormClosing += delegate { File.AppendAllText(Log, "closed:" + System.Diagnostics.Process.GetCurrentProcess().Id + Environment.NewLine); };
+        FormClosing += delegate(object sender, FormClosingEventArgs e) {
+            if (File.Exists(Log + ".refuse")) { e.Cancel = true; File.AppendAllText(Log, "refused:" + System.Diagnostics.Process.GetCurrentProcess().Id + Environment.NewLine); }
+            else File.AppendAllText(Log, "closed:" + System.Diagnostics.Process.GetCurrentProcess().Id + Environment.NewLine);
+        };
     }
     [STAThread] public static void Main() { Application.Run(new Probe()); }
 }

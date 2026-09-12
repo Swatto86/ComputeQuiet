@@ -1,6 +1,6 @@
 import { remote } from 'webdriverio';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import assert from 'node:assert/strict';
@@ -42,7 +42,7 @@ async function appExit(){
 }
 try {
   await connect();
-  assert.equal(await browser.$('#mode').getText(),'GAME MODE OFF');
+  assert.equal(await browser.$('#mode').getText(),'READY');
   await tab('settings');
   if(live&&process.argv.includes('--claude')) {await browser.$('#provider').selectByAttribute('value','claude');await browser.$('#model').setValue('haiku');}
   if(!live)await browser.$('#cli-path').setValue(fakeCli);
@@ -80,25 +80,47 @@ try {
   if(!live)assert.ok(readFileSync(path.join(temp,'provider-cwd.txt'),'utf8').startsWith(state+path.sep+'assessment-'),'Provider runs in its isolated scratch directory');
   await browser.saveScreenshot(path.join(temp,'assessment.png'));
   let select=await browser.$('select[aria-label="Preference for GqProbe"]');
-  await select.selectByVisibleText('Close in Game Mode');await browser.$('#confirm').waitForDisplayed();await click('#accept');
+  await select.selectByVisibleText('Close for session');await browser.$('#confirm').waitForDisplayed();await click('#accept');
   await click('#toggle');
-  assert.equal(await browser.$('#mode').getText(),'GAME MODE ON');
+  assert.equal(await browser.$('#mode').getText(),'QUIET SESSION');
+  assert.ok(await browser.$('#assess').getAttribute('disabled'),'Cloud assessment unavailable during session');
   assert.match(readFileSync(probeLog,'utf8'),/closed:/,'OS accepted normal close');
   const journal=JSON.parse(readFileSync(path.join(state,'state.json'),'utf8'));
   assert.equal(journal.recovery.length,1);assert.equal(journal.recovery[0].status,'stopped');
   const listed=await browser.$$('#rows h4').map(el=>el.getText());
   assert.ok(listed.length>0,'Rows still render once Game Mode is on, so the check below cannot pass vacuously');
   assert.ok(!listed.includes('GqProbe'),`A stopped app must leave the list: ${JSON.stringify(listed)}`);
-  assert.match(await browser.$('#count').getText(),/measured before Game Mode started/,'Remaining measurements are labelled as pre-session');
+  assert.match(await browser.$('#count').getText(),/Snapshot .*not live/,'Measurements are timestamped and never described as live');
+  await click('#scan');
+  assert.match(await browser.$('#count').getText(),/Snapshot .*not live/);
+  assert.match(await browser.$('#status').getText(),/1 confirmed stop/,'Scanning preserves the session outcome');
+  assert.equal(await browser.$('#summary').isDisplayed(),false,'A new snapshot invalidates the previous cloud summary');
   const running=await browser.execute(()=>window.__TAURI__.core.invoke('get_state'));
   process.kill(running.process_id); // Only the app started by this isolated WebDriver session.
   await browser.deleteSession().catch(()=>{});browser=null;
   await connect();
-  assert.equal(await browser.$('#mode').getText(),'GAME MODE ON','Recovery survives forced termination');
+  assert.equal(await browser.$('#mode').getText(),'QUIET SESSION','Recovery survives forced termination');
   await click('#toggle');
-  assert.equal(await browser.$('#mode').getText(),'GAME MODE OFF');
+  assert.equal(await browser.$('#mode').getText(),'READY');
+  assert.equal((await browser.$$('#rows .row')).length,0,'Restoring invalidates old measurements');
   assert.equal(JSON.parse(readFileSync(path.join(state,'state.json'),'utf8')).recovery.length,0);
   assert.ok(readFileSync(probeLog,'utf8').split('started:').length>=3,'App was relaunched');
+  // A real app refuses the normal close request, as with an unsaved document.
+  writeFileSync(probeLog+'.refuse','refuse');
+  await click('#toggle');
+  assert.match(readFileSync(probeLog,'utf8'),/refused:/,'The refusal path actually ran');
+  assert.equal(await browser.$('#mode').getText(),'NEEDS ATTENTION','A failed stop must not advertise success');
+  assert.match(await browser.$('#description').getText(),/0 confirmed stop/);
+  assert.match(await browser.$('#rows').getText(),/ACTION UNCONFIRMED/);
+  assert.ok(await browser.$('select[aria-label="Preference for GqProbe"]').getAttribute('disabled'));
+  await click('#scan');
+  assert.match(await browser.$('#status').getText(),/0 confirmed stops, 1 unconfirmed/);
+  await tab('history');
+  await browser.$('#recovery button').click();await click('#accept');
+  assert.equal(await browser.$('#mode').getText(),'READY');
+  assert.match(await browser.$('#status').getText(),/Session ended/);
+  unlinkSync(probeLog+'.refuse');
+  await tab('workloads');
   // Close-to-tray must keep the process and state alive.
   await browser.$('#hide').click();
   await sleep(400);

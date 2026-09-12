@@ -1,18 +1,29 @@
-# GameQuiet
+# ComputeQuiet
 
-A Windows tray app that makes room for your game, or for demanding work such as game
-development, then restores the apps it stopped.
+A Windows tray app that frees resources for games, rendering, builds, video editing,
+local AI and other demanding work, then restores the background apps it stopped.
+Formerly GameQuiet; existing approvals and recovery journals remain compatible.
 
-Windows requests administrator permission before launching GameQuiet. Cancelling UAC
+Windows requests administrator permission before launching ComputeQuiet. Cancelling UAC
 leaves the app closed. Child processes, including restored apps, inherit elevation.
 
 1. **Scan PC** measures CPU, GPU, memory and I/O.
 2. **Assess with cloud AI** uses your signed-in Codex or Claude CLI. Only limited process
    metadata is sent; no full paths, command lines, window titles or file contents.
-3. Review an app and choose **Close in Game Mode**. These choices apply to the exact
+3. Review an app and choose **Close for session**. These choices apply to the exact
    executable version. Ollama also needs the interruption permission in Settings.
-4. **Turn on Game Mode** rechecks identities, saves recovery and applies your choices.
-5. **Turn off & restore** restarts only recorded workloads. Close the window to use the tray.
+4. **Start quiet session** rechecks identities, saves recovery and applies your choices.
+5. **End session & restore** restarts only recorded workloads. Close the window to use the tray.
+
+The window and tray distinguish **Quiet session**, **Partially quiet**, and **Needs
+attention** from recorded action outcomes. An unconfirmed stop is never presented as
+success or proof that the process is still running. Measurements are timestamped
+snapshots, not live readings; Scan PC refreshes them without closing anything. Restoring
+or clearing recovery invalidates old readings. Keep the app doing your intensive work
+on **Always keep**; only explicitly approved background workloads are selected.
+Unavailable GPU/I/O counters are shown as unavailable and sent to cloud assessment as
+unknown. Scans cover up to 80 processes above 5 MB in the current Windows session,
+plus the supported Ollama workload; they are not a complete system process inventory.
 
 Cloud advice only informs your review; your explicit choices decide what is stopped, and
 they work offline. Cached advice expires after 24 hours. Nothing runs continuously while
@@ -42,10 +53,12 @@ executable. The E2E harness uses installed `tauri-driver` and an Edge driver mat
 Set `MSEDGEDRIVER` to its absolute path. `node tests/e2e.mjs --live` adds real cloud
 acceptance. Tests use disposable state and apps, not your running workloads.
 
-State: `%LOCALAPPDATA%\GameQuiet`. Override with `GAMEQUIET_DATA_DIR` for isolated testing.
+Launch **ComputeQuiet** from Start. For upgrade compatibility the executable stays at
+`%LOCALAPPDATA%\Programs\GameQuiet\GameQuiet.exe`, and state stays in
+`%LOCALAPPDATA%\GameQuiet`. Override with `GAMEQUIET_DATA_DIR` for isolated testing.
 Do not delete state while recovery entries remain. On startup after a crash, use Restore.
 Use Restore and quit before uninstalling. `scripts/uninstall.ps1` removes the installed
 launcher and binaries, preserving user state unless you remove it yourself after recovery.
 
-Source: [Cursor Origin](https://origin.cursor.com/swatto/gamequiet). Initial local release;
+Source: [Cursor Origin](https://origin.cursor.com/swatto/ComputeQuiet). Local release;
 no remote update service or published release channel is configured.

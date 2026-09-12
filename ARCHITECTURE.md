@@ -1,15 +1,24 @@
-# GameQuiet
+# ComputeQuiet
 
 Windows-only Tauri v2 tray app with static HTML/CSS/JavaScript. Rust owns policy,
 settings, CLI requests and a write-ahead recovery journal. The interface has no shell
 or filesystem permissions. Blocking operations run off the UI thread, serialised per
 application instance. The tray remains idle between user actions, and its menu names the
-current Game Mode state and the action separately so a toggle is never ambiguous.
+recorded session outcome and the action separately so a toggle is never ambiguous.
 
-Enabling Game Mode removes the workloads it confirmed stopped from the snapshot and leaves
-the rest with their pre-session measurements, which the interface labels as such. No new
-scan is taken, so a session still performs no continuous measurement. A workload that
-refused to close stays listed, is marked as still running, and is counted in the status.
+Starting a quiet session removes each workload confirmed stopped or already exited from
+the snapshot immediately, including if a later journal write fails. Remaining measurements
+retain their timestamp. A fresh scan updates that timestamp and clears the previous cloud
+summary. Restore and manual recovery clear the old snapshot and advice. No continuous
+measurement runs. Failed stops retain recovery and are labelled unconfirmed: errors can
+mean a partial action or an exited process, so they cannot establish current liveness.
+The window and tray share a derived session label; the persisted `active` flag means
+restoration is pending, not that every requested stop succeeded. Busy events disable
+conflicting UI actions, including operations initiated from the tray.
+
+The 0.2.0 product rename keeps the original executable, Tauri identifier, data directory,
+environment variable and version-1 journal format. Installation replaces the owned old
+Start shortcut with ComputeQuiet and retains a backup of the previous executable.
 
 `model.rs` is the IPC/state contract. `engine.rs` validates preferences, caches advice
 for 24 hours by executable path + SHA-256, and records each stop before executing it.

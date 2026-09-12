@@ -1,8 +1,8 @@
 [package]
 name = "gamequiet"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Make room for your game, then put things back"
+description = "Make room for demanding work, then put things back"
 license = "MIT"
 
 [dependencies]

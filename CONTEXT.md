@@ -1,11 +1,17 @@
 # Context
 
-- Product: GameQuiet, a Windows tray utility to free gaming resources and restore the
-  workloads afterwards. Name chosen for the initial implementation; version 0.1.0.
+- Product: ComputeQuiet (formerly GameQuiet), a Windows tray utility to free resources
+  for games, builds, rendering, video editing and local AI; version 0.2.0. The Start
+  launcher and window use the new name. Internal executable, app identifier, environment
+  variable and state paths retain GameQuiet for upgrade/recovery compatibility.
+- Session labels report confirmed versus unconfirmed action outcomes, not current
+  process liveness. Measurements carry a snapshot timestamp and are invalidated by
+  restore/manual recovery. Scans do not close apps or continuously monitor them.
 - Windows launches require administrator rights through the executable manifest;
   run the real-webview verification from an elevated shell.
-- Origin is the only remote: `https://origin.cursor.com/swatto/gamequiet.git`. Work on
-  `main`, commit and push verified units. No GitHub repository or release assets.
+- Origin is the only remote: `https://origin.cursor.com/swatto/ComputeQuiet.git`. Work on
+  `main`, commit and push verified units. The original GameQuiet repository is retained;
+  ComputeQuiet carries its complete main-branch history. No GitHub repository or release assets.
 - Use Codex/Claude CLI cloud authentication in the same manner as Eir; do not extract
   tokens. AI advice cannot execute commands or bypass deterministic safeguards.
 - Initial scope includes process measurements, CLI assessment, cached advice, per-app

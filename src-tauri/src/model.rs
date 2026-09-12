@@ -163,6 +163,8 @@ pub struct View {
     pub process_id: u32,
     pub state: DiskState,
     pub snapshot: Snapshot,
+    pub sampled_at: u64,
+    pub session_label: String,
     pub advice: Vec<Advice>,
     pub summary: String,
     pub busy: bool,

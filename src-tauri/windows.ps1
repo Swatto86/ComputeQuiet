@@ -31,8 +31,8 @@ function Get-Target([Diagnostics.Process]$Process) {
 function Assert-Target($Target, [switch]$Ollama) {
     $process = Get-Process -Id $Target.pid -ErrorAction SilentlyContinue
     if (-not $process) { return $null }
-    if ($process.StartTime.ToUniversalTime().Ticks.ToString() -ne $Target.started -or $process.Path -ine $Target.exe) { throw 'Process identity changed; rescan before applying Game Mode.' }
-    if ((Get-FileHash -LiteralPath $Target.exe -Algorithm SHA256).Hash -ne $Target.hash) { throw 'The executable changed; rescan before applying Game Mode.' }
+    if ($process.StartTime.ToUniversalTime().Ticks.ToString() -ne $Target.started -or $process.Path -ine $Target.exe) { throw 'Process identity changed; rescan before starting a quiet session.' }
+    if ((Get-FileHash -LiteralPath $Target.exe -Algorithm SHA256).Hash -ne $Target.hash) { throw 'The executable changed; rescan before starting a quiet session.' }
     if ($Ollama) {
         if (-not $process.Path.StartsWith(($ollamaDir + '\'), [StringComparison]::OrdinalIgnoreCase) -or $process.ProcessName -notin @('ollama','ollama app','llama-server')) { throw 'Ollama executable is outside its expected installation.' }
         $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$($process.Id)"
@@ -58,7 +58,9 @@ function Get-Snapshot {
     $cores = [Math]::Max(1, (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors)
     $gpu = @{}
     try {
-        foreach ($counter in Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine) {
+        $counters = @(Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine)
+        if (-not $counters.Count) { throw 'No GPU counters were returned.' }
+        foreach ($counter in $counters) {
             if ($counter.Name -match 'pid_(\d+)_') {
                 $targetId = [int]$Matches[1]
                 $gpu[$targetId] = [Math]::Max([double]$gpu[$targetId], [double]$counter.UtilizationPercentage)
@@ -66,7 +68,11 @@ function Get-Snapshot {
         }
     } catch { $warnings.Add('Per-process GPU counters are unavailable; CPU and memory readings remain available.') }
     $io = @{}
-    try { foreach ($counter in Get-CimInstance Win32_PerfFormattedData_PerfProc_Process) { $io[[int]$counter.IDProcess] = [double]$counter.IODataBytesPersec / 1MB } }
+    try {
+        $counters = @(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process)
+        if (-not $counters.Count) { throw 'No process I/O counters were returned.' }
+        foreach ($counter in $counters) { $io[[int]$counter.IDProcess] = [double]$counter.IODataBytesPersec / 1MB }
+    }
     catch { $warnings.Add('Process I/O counters are unavailable.') }
     $rows = [Collections.Generic.List[object]]::new()
     $ollama = @($processes | Where-Object { $_.ProcessName -in @('ollama','ollama app','llama-server') -and $_.Path -and $_.Path.StartsWith(($ollamaDir + '\'), [StringComparison]::OrdinalIgnoreCase) })
@@ -98,13 +104,13 @@ function Get-Snapshot {
         if ($launcher) {
             $targets = @($ollama | ForEach-Object { Get-Target $_ })
             $target = Get-Target $launcher
-            $sumCpu = 0; $sumGpu = 0; $sumMemory = 0
+            $sumCpu = 0; $sumGpu = 0; $sumMemory = 0; $sumIo = 0
             foreach ($p in $ollama) {
                 if ($first.ContainsKey($p.Id) -and $second.ContainsKey($p.Id)) { $sumCpu += [Math]::Max(0, ($second[$p.Id] - $first[$p.Id]) / $elapsed / $cores * 100) }
-                $sumGpu += [double]$gpu[$p.Id]; $sumMemory += $p.WorkingSet64 / 1MB
+                $sumGpu += [double]$gpu[$p.Id]; $sumMemory += $p.WorkingSet64 / 1MB; $sumIo += [double]$io[$p.Id]
             }
-            $rows.Add(@{id='ollama'; pid=$target.pid; started=$target.started; name='Ollama'; exe=$target.exe; hash=$target.hash; kind='ollama'; product='Ollama local AI'; publisher='Ollama'; cpu=[Math]::Round([Math]::Min(100,$sumCpu),1); memory_mb=[Math]::Round($sumMemory,1); io_mb=0; gpu=[Math]::Min(100,$sumGpu); has_window=$false; blocked=$blocked; targets=$targets; models=$models})
-        } else { $warnings.Add('An orphaned Ollama worker was detected; restart Ollama before using Game Mode.') }
+            $rows.Add(@{id='ollama'; pid=$target.pid; started=$target.started; name='Ollama'; exe=$target.exe; hash=$target.hash; kind='ollama'; product='Ollama local AI'; publisher='Ollama'; cpu=[Math]::Round([Math]::Min(100,$sumCpu),1); memory_mb=[Math]::Round($sumMemory,1); io_mb=[Math]::Round($sumIo,2); gpu=[Math]::Min(100,$sumGpu); has_window=$false; blocked=$blocked; targets=$targets; models=$models})
+        } else { $warnings.Add('An orphaned Ollama worker was detected; restart Ollama before starting a quiet session.') }
     }
     $gpuSummary = 'GPU utilisation is the busiest engine for each process; shared engines are not additive.'
     return @{workloads=@($rows | Sort-Object -Property @{Expression='gpu';Descending=$true},@{Expression='cpu';Descending=$true}); warnings=@($warnings); gpu_summary=$gpuSummary}

@@ -9,9 +9,19 @@ $binary=Join-Path $directory 'ollama.exe'
 $log=Join-Path $root 'probe.log'
 $originalLocal=$env:LOCALAPPDATA
 $originalLog=$env:GAMEQUIET_PROBE_LOG
+$originalCounterPid=$env:GAMEQUIET_TEST_COUNTER_PID
 $originalInput=[Console]::In
 $loads=[Collections.Generic.List[object]]::new()
-# Fake only the HTTP boundary. Processes, identity checks, termination, relaunch and
+$realCim=Get-Command Get-CimInstance
+$emptyCounters=$false
+function Get-CimInstance {
+    [CmdletBinding()]
+    param([string]$ClassName,[string]$Filter)
+    if ($emptyCounters -and $ClassName -like 'Win32_PerfFormattedData_*') { return @() }
+    & $realCim @PSBoundParameters
+    if ($ClassName -eq 'Win32_PerfFormattedData_PerfProc_Process') { @{IDProcess=[int]$env:GAMEQUIET_TEST_COUNTER_PID;IODataBytesPersec=2MB} }
+}
+# Fake HTTP and selected performance counters. Processes, identity checks, termination, relaunch and
 # model reload request construction all execute through the production adapter.
 function Invoke-RestMethod {
     [CmdletBinding()]
@@ -32,6 +42,7 @@ try {
     $env:LOCALAPPDATA=$root
     $env:GAMEQUIET_PROBE_LOG=$log
     $first=Start-Process -FilePath $binary -WindowStyle Hidden -PassThru
+    $env:GAMEQUIET_TEST_COUNTER_PID=$first.Id
     Start-Sleep -Milliseconds 600
     $snapshot=Invoke-Adapter scan
     if ($snapshot.error) { throw $snapshot.error }
@@ -52,10 +63,16 @@ try {
     if ((Get-Content $log -Raw) -notmatch ':serve') { throw 'CLI-only Ollama restore must use serve' }
     $restored=Invoke-Adapter restore $json
     if ($restored.error -or @(Get-Process ollama | Where-Object Path -EQ $binary).Count -ne 1) { throw 'Restore is not idempotent' }
+    $emptyCounters=$true
+    $unavailable=Invoke-Adapter scan
+    if ($unavailable.error -or -not ($unavailable.workloads | Where-Object id -EQ 'ollama')) { throw 'Counter test must still discover the real disposable workload' }
+    if (-not ($unavailable.warnings -match 'GPU counters are unavailable') -or -not ($unavailable.warnings -match 'I/O counters are unavailable')) { throw 'Empty counter providers must be reported as unavailable, not zero utilisation' }
+    if ($workload.io_mb -ne 2) { throw "Ollama I/O must be 2 MB/s for fixture PID $($first.Id); got $($workload.io_mb). Warnings: $($snapshot.warnings -join '; ')" }
     Write-Output "PASS: isolated Ollama discovery, stale identity denial, real process stop/restart and model reload contract ($root)"
 } finally {
     foreach ($p in Get-Process ollama -ErrorAction SilentlyContinue | Where-Object Path -EQ $binary) { $p.Kill(); $p.WaitForExit() }
     $env:LOCALAPPDATA=$originalLocal
     $env:GAMEQUIET_PROBE_LOG=$originalLog
+    $env:GAMEQUIET_TEST_COUNTER_PID=$originalCounterPid
     [Console]::SetIn($originalInput)
 }

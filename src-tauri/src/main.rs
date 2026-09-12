@@ -24,19 +24,11 @@ struct TrayMenu {
     toggle: MenuItem<tauri::Wry>,
 }
 
-fn status_label(active: bool) -> &'static str {
-    if active {
-        "Game Mode: ON"
-    } else {
-        "Game Mode: OFF"
-    }
-}
-
 fn toggle_label(active: bool) -> &'static str {
     if active {
-        "Turn off & restore"
+        "End session & restore"
     } else {
-        "Turn on Game Mode"
+        "Start quiet session"
     }
 }
 
@@ -47,17 +39,19 @@ fn show(app: &tauri::AppHandle) {
     }
 }
 
-fn tray_state(app: &tauri::AppHandle, active: bool) {
+fn tray_state(app: &tauri::AppHandle, view: &View) {
+    let label = if view.busy {
+        "WORKING"
+    } else {
+        &view.session_label
+    };
     if let Some(tray) = app.tray_by_id("main") {
-        let _ = tray.set_tooltip(Some(if active {
-            "GameQuiet — Game Mode ON"
-        } else {
-            "GameQuiet — Game Mode OFF"
-        }));
+        let _ = tray.set_tooltip(Some(format!("ComputeQuiet — {label}")));
     }
     if let Some(menu) = app.try_state::<TrayMenu>() {
-        let _ = menu.status.set_text(status_label(active));
-        let _ = menu.toggle.set_text(toggle_label(active));
+        let _ = menu.status.set_text(label);
+        let _ = menu.toggle.set_text(toggle_label(view.state.active));
+        let _ = menu.toggle.set_enabled(!view.busy);
     }
 }
 
@@ -71,12 +65,17 @@ async fn work(
             .0
             .try_lock()
             .map_err(|_| "An operation is already running".to_string())?;
+        let mut working = engine.view();
+        working.busy = true;
+        working.status = "Working. Please wait for the recorded result…".into();
+        tray_state(&app, &working);
+        let _ = app.emit("updated", &working);
         let result = action(&mut engine);
         if let Err(ref error) = result {
             engine.status = format!("{error:#}");
         }
         let view = engine.view();
-        tray_state(&app, view.state.active);
+        tray_state(&app, &view);
         let _ = app.emit("updated", &view);
         result.map_err(|e| format!("{e:#}"))?;
         Ok(view)
@@ -181,10 +180,11 @@ fn main() {
             };
             let engine = Engine::open(root)?;
             let active = engine.disk.active;
+            let initial = engine.view();
             app.manage(Shared(Arc::new(Mutex::new(engine))));
             let status =
-                MenuItem::with_id(app, "status", status_label(active), false, None::<&str>)?;
-            let open = MenuItem::with_id(app, "open", "Open GameQuiet", true, None::<&str>)?;
+                MenuItem::with_id(app, "status", &initial.session_label, false, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", "Open ComputeQuiet", true, None::<&str>)?;
             let toggle =
                 MenuItem::with_id(app, "toggle", toggle_label(active), true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "Restore and quit", true, None::<&str>)?;
@@ -229,7 +229,7 @@ fn main() {
                     _ => {}
                 })
                 .build(app)?;
-            tray_state(app.handle(), active);
+            tray_state(app.handle(), &initial);
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -253,9 +253,10 @@ fn main() {
         .run(context);
     if let Err(error) = result {
         // Startup errors must be visible even when the app has no console.
-        let message = serde_json::json!({"message":format!("GameQuiet could not start: {error}")})
-            .to_string();
-        let script="Add-Type -AssemblyName System.Windows.Forms; $v=[Console]::In.ReadToEnd()|ConvertFrom-Json; [System.Windows.Forms.MessageBox]::Show($v.message,'GameQuiet')|Out-Null";
+        let message =
+            serde_json::json!({"message":format!("ComputeQuiet could not start: {error}")})
+                .to_string();
+        let script="Add-Type -AssemblyName System.Windows.Forms; $v=[Console]::In.ReadToEnd()|ConvertFrom-Json; [System.Windows.Forms.MessageBox]::Show($v.message,'ComputeQuiet')|Out-Null";
         let mut cmd = process::command("pwsh.exe");
         cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
         let _ = process::run(cmd, &message, std::time::Duration::from_secs(120));
@@ -267,16 +268,7 @@ mod tests {
     use super::*;
     #[test]
     fn the_tray_names_the_current_state_and_the_action_separately() {
-        for active in [true, false] {
-            assert_ne!(status_label(active), toggle_label(active));
-        }
-        assert!(status_label(true).contains("ON") && status_label(false).contains("OFF"));
-        // The action item must describe what pressing it does, not the state it is in.
-        assert!(toggle_label(true).contains("off"), "{}", toggle_label(true));
-        assert!(
-            toggle_label(false).contains("on"),
-            "{}",
-            toggle_label(false)
-        );
+        assert!(toggle_label(true).contains("restore"));
+        assert!(toggle_label(false).contains("Start"));
     }
 }

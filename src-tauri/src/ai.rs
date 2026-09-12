@@ -20,9 +20,15 @@ pub fn schema() -> Value {
 
 pub fn metadata(snapshot: &Snapshot) -> Value {
     // Deliberate allowlist: no full paths, usernames, arguments, window titles or model names.
+    let available = |kind: &str| {
+        !snapshot
+            .warnings
+            .iter()
+            .any(|w| w.contains(kind) && w.contains("unavailable"))
+    };
     json!(snapshot.workloads.iter().map(|w| json!({
         "id":w.id,"name":w.name,"product":w.product,"publisher_metadata":w.publisher,
-        "cpu_percent":w.cpu,"gpu_percent":w.gpu,"memory_mb":w.memory_mb,"io_mb_per_second":w.io_mb,
+        "cpu_percent":w.cpu,"gpu_percent":available("GPU").then_some(w.gpu),"memory_mb":w.memory_mb,"io_mb_per_second":available("I/O").then_some(w.io_mb),
         "has_window":w.has_window,"blocked":w.blocked,"adapter":w.kind
     })).collect::<Vec<_>>())
 }
@@ -201,6 +207,20 @@ pub fn validate(result: &Assessment, snapshot: &Snapshot) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unavailable_counters_are_not_sent_as_zero_usage() {
+        let mut snapshot = Snapshot {
+            workloads: vec![Workload::default()],
+            ..Default::default()
+        };
+        assert_eq!(metadata(&snapshot)[0]["gpu_percent"], 0.0);
+        snapshot.warnings = vec![
+            "Per-process GPU counters are unavailable".into(),
+            "Process I/O counters are unavailable".into(),
+        ];
+        assert!(metadata(&snapshot)[0]["gpu_percent"].is_null());
+        assert!(metadata(&snapshot)[0]["io_mb_per_second"].is_null());
+    }
     #[test]
     fn rejects_invented_ids_and_protected_targets_and_redacts_metadata() {
         let w = Workload {
