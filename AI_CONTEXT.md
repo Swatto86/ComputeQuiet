@@ -42,3 +42,4 @@ flowchart LR
 
 - 2026-09-18: Replaced broken Tauri `main` with .NET WinForms prototype.
 - 2026-09-18: Converted UI to WPF for High-DPI layout (WinForms absolute coords were squashed).
+- 2026-09-18: Aggressive mode no longer suspends processes with a main window (was freezing the desktop).
