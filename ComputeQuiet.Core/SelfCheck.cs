@@ -23,8 +23,10 @@ public static class SelfCheck
         Assert(!ProcessPolicy.ShouldSuspend("chrome", balanced), "chrome kept in balanced");
 
         var aggressive = new QuietOptions { Aggressive = true };
-        Assert(ProcessPolicy.ShouldSuspend("chrome", aggressive), "chrome suspended when aggressive");
+        // Name policy still marks chrome as a candidate; QuietEngine skips PIDs with visible windows.
+        Assert(ProcessPolicy.ShouldSuspend("chrome", aggressive), "chrome is an aggressive name candidate");
         Assert(!ProcessPolicy.ShouldSuspend("dwm", aggressive), "dwm never suspended");
+        Assert(!ProcessPolicy.ShouldSuspend("WindowsTerminal", aggressive), "WindowsTerminal is critical");
 
         aggressive.ExtraKeepAlive.Add("chrome");
         Assert(!ProcessPolicy.ShouldSuspend("chrome", aggressive), "ExtraKeepAlive honored");

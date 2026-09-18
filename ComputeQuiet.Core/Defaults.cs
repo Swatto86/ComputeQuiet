@@ -5,12 +5,12 @@ public static class Defaults
     /// <summary>Windows services paused while Quiet is on (restored if they were running).</summary>
     public static readonly string[] QuietServices =
     [
-        "SysMain",      // Superfetch / prefetch
-        "WSearch",      // Windows Search indexer
-        "DiagTrack",    // Telemetry
+        "SysMain",
+        "WSearch",
+        "DiagTrack",
         "dmwappushservice",
         "RetailDemo",
-        "Wisvc",        // Windows Insider
+        "Wisvc",
     ];
 
     /// <summary>Background updaters / sync clients suspended in balanced mode.</summary>
@@ -47,7 +47,7 @@ public static class Defaults
         "AppVShNotify",
     ];
 
-    /// <summary>Never suspend these — OS / shell stability.</summary>
+    /// <summary>Never suspend — OS, shell, input, security, terminals.</summary>
     public static readonly string[] CriticalKeepAlive =
     [
         "Idle",
@@ -64,6 +64,11 @@ public static class Defaults
         "dwm",
         "explorer",
         "conhost",
+        "OpenConsole",
+        "WindowsTerminal",
+        "powershell",
+        "pwsh",
+        "cmd",
         "sihost",
         "taskhostw",
         "RuntimeBroker",
@@ -71,6 +76,8 @@ public static class Defaults
         "StartMenuExperienceHost",
         "SearchHost",
         "TextInputHost",
+        "TabTip",
+        "TabTip32",
         "SecurityHealthSystray",
         "SecurityHealthService",
         "MsMpEng",
@@ -83,10 +90,19 @@ public static class Defaults
         "CompPkgSrv",
         "ApplicationFrameHost",
         "SystemSettings",
+        "SystemSettingsBroker",
         "UserOOBEBroker",
         "backgroundTaskHost",
         "LockApp",
         "LogonUI",
+        "CrossDeviceResume",
+        "ShellHost",
+        "PickerHost",
+        "CredentialUIBroker",
+        "ConsentExe",
+        "UserAccountBroker",
+        "WindowsPackageManagerServer",
+        "Cursor",
         "ComputeQuiet",
     ];
 }

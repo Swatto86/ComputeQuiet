@@ -118,6 +118,8 @@ public sealed class QuietEngine
     {
         var self = Environment.ProcessId;
         var foregroundPid = GetForegroundProcessId();
+        // Aggressive must not freeze the desktop: skip any PID that owns a visible window.
+        var interactivePids = options.Aggressive ? GetPidsWithVisibleWindows() : null;
 
         foreach (var process in Process.GetProcesses())
         {
@@ -133,12 +135,28 @@ public sealed class QuietEngine
                 if (!ProcessPolicy.ShouldSuspend(name, options))
                     continue;
 
-                // Only touch processes in our session (skip Session 0 services).
                 int sessionId;
                 try { sessionId = process.SessionId; }
                 catch { continue; }
                 if (sessionId == 0)
                     continue;
+
+                if (interactivePids is not null && interactivePids.Contains(process.Id))
+                {
+                    LogLine($"Kept interactive {name} ({process.Id})");
+                    continue;
+                }
+
+                // Extra guard: MainWindowHandle even if EnumWindows missed it.
+                try
+                {
+                    if (options.Aggressive && process.MainWindowHandle != IntPtr.Zero)
+                    {
+                        LogLine($"Kept windowed {name} ({process.Id})");
+                        continue;
+                    }
+                }
+                catch { /* ignore */ }
 
                 if (TrySuspend(process.Id))
                 {
@@ -155,6 +173,23 @@ public sealed class QuietEngine
                 process.Dispose();
             }
         }
+    }
+
+    static HashSet<int> GetPidsWithVisibleWindows()
+    {
+        var pids = new HashSet<int>();
+        EnumWindows((hwnd, _) =>
+        {
+            if (!IsWindowVisible(hwnd))
+                return true;
+            if (GetWindow(hwnd, GwOwner) != IntPtr.Zero)
+                return true; // owned popups still count as interactive via owner chain; include them too
+            _ = GetWindowThreadProcessId(hwnd, out var pid);
+            if (pid != 0)
+                pids.Add((int)pid);
+            return true;
+        }, IntPtr.Zero);
+        return pids;
     }
 
     static int GetForegroundProcessId()
@@ -218,6 +253,19 @@ public sealed class QuietEngine
     }
 
     void LogLine(string message) => _log.Add($"{DateTime.Now:HH:mm:ss}  {message}");
+
+    const int GwOwner = 4;
+
+    delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern IntPtr GetWindow(IntPtr hWnd, int uCmd);
 
     [DllImport("ntdll.dll")]
     static extern int NtSuspendProcess(IntPtr processHandle);

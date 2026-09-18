@@ -22,6 +22,10 @@ public static class ProcessPolicy
         return false;
     }
 
+    /// <summary>
+    /// Name-based suspend candidate. Aggressive still excludes keep-alive;
+    /// QuietEngine additionally skips processes that own a visible window.
+    /// </summary>
     public static bool ShouldSuspend(string processName, QuietOptions options)
     {
         if (ShouldKeepAlive(processName, options))

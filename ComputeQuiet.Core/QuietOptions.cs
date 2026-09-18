@@ -3,8 +3,8 @@ namespace ComputeQuiet;
 public sealed class QuietOptions
 {
     /// <summary>
-    /// When true, suspend every non-whitelisted process in the current user session.
-    /// When false, only suspend known background hogs plus stop quiet services.
+    /// When true, also suspend session processes that have no visible window
+    /// (interactive apps with a UI stay running). When false, only known background hogs.
     /// </summary>
     public bool Aggressive { get; set; }
 

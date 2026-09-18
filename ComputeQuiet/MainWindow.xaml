@@ -53,7 +53,7 @@
 
       <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
         <CheckBox x:Name="AggressiveCheck"
-                  Content="Aggressive — suspend all non-essential apps"/>
+                  Content="Aggressive — also suspend background apps (no visible window)"/>
         <CheckBox x:Name="PowerPlanCheck"
                   Content="Switch to High Performance power plan while quiet"
                   Checked="OnPowerPlanChanged" Unchecked="OnPowerPlanChanged"/>
