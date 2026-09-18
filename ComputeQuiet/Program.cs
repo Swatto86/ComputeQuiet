@@ -35,11 +35,11 @@ public static class Program
             }
             catch
             {
-                MessageBox.Show(
+            System.Windows.MessageBox.Show(
                     "ComputeQuiet needs Administrator rights to pause services and suspend other processes.",
                     "ComputeQuiet",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
             }
             return;
         }

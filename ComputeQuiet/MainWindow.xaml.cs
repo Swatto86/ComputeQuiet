@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows;
 using System.Windows.Media;
 using WinForms = System.Windows.Forms;
+using WpfMessageBox = System.Windows.MessageBox;
 
 namespace ComputeQuiet;
 
