@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using System.Runtime.Versioning;
+using IOPath = System.IO.Path;
 
 namespace ComputeQuiet;
 
@@ -27,7 +28,7 @@ public static class AutoStart
         }
 
         var exe = Environment.ProcessPath
-            ?? Path.Combine(AppContext.BaseDirectory, "ComputeQuiet.exe");
+            ?? IOPath.Combine(AppContext.BaseDirectory, "ComputeQuiet.exe");
         key.SetValue(ValueName, $"\"{exe}\" --minimized");
     }
 }
