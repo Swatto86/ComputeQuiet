@@ -6,7 +6,7 @@ Windows utility that parks background work so games, local AI, or other hungry p
 
 ## Features
 
-- **GO QUIET / RESTORE** toggle
+- **GO QUIET / RESTORE** toggle (WPF UI, DPI-aware)
 - Stops noisy services (`SysMain`, `WSearch`, `DiagTrack`, …) and suspends known background hogs
 - Optional **Aggressive** mode for the whole user session (shell/OS kept; foreground app skipped)
 - **High Performance** power-plan switch while quiet (restored on exit)
@@ -25,32 +25,13 @@ cd ComputeQuiet
 .\build.ps1
 ```
 
-Run `.\publish\ComputeQuiet.exe`.
+Run `.\publish\ComputeQuiet.exe` and accept the UAC prompt.
 
 ## Tests
 
 ```powershell
 dotnet run --project ComputeQuiet.Tests
 ```
-
-## Assets / metadata
-
-| File | Purpose |
-|------|---------|
-| `ComputeQuiet/Assets/ComputeQuiet.ico` | App + tray icon (16–256px) |
-| `ComputeQuiet/Assets/ComputeQuiet.png` | 512px brand mark |
-| `ComputeQuiet/Assets/ComputeQuiet-*.png` | Individual sizes |
-| Assembly `Version` / `Company` / `Product` | Set in `ComputeQuiet.csproj` (v1.1.0) |
-
-## Cursor Origin
-
-```bash
-# On a machine/agent with Origin auth:
-export CURSOR_API_KEY=...   # or rely on CURSOR_AUTH_TOKEN in cloud
-./publish-origin.sh ComputeQuiet
-```
-
-That creates the Origin repo and pushes `main` to `https://origin.cursor.com/<you>/ComputeQuiet.git`.
 
 ## Usage tips
 

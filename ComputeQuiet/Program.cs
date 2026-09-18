@@ -1,20 +1,19 @@
 using System.Diagnostics;
 using System.Security.Principal;
+using System.Windows;
 
 namespace ComputeQuiet;
 
-static class Program
+public static class Program
 {
     [STAThread]
-    static void Main(string[] args)
+    public static void Main(string[] args)
     {
         if (args.Contains("--self-check", StringComparer.OrdinalIgnoreCase))
         {
             Environment.Exit(SelfCheck.Run() ? 0 : 1);
             return;
         }
-
-        ApplicationConfiguration.Initialize();
 
         var startMinimized = args.Any(a =>
             a.Equals("--minimized", StringComparison.OrdinalIgnoreCase) ||
@@ -26,7 +25,8 @@ static class Program
             {
                 var start = new ProcessStartInfo
                 {
-                    FileName = Environment.ProcessPath ?? Application.ExecutablePath,
+                    FileName = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName
+                        ?? throw new InvalidOperationException("Cannot locate ComputeQuiet.exe"),
                     UseShellExecute = true,
                     Verb = "runas",
                     Arguments = string.Join(' ', args.Select(QuoteIfNeeded)),
@@ -38,13 +38,15 @@ static class Program
                 MessageBox.Show(
                     "ComputeQuiet needs Administrator rights to pause services and suspend other processes.",
                     "ComputeQuiet",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
             return;
         }
 
-        Application.Run(new MainForm(startMinimized));
+        var app = new App();
+        app.InitializeComponent();
+        app.Run(new MainWindow(startMinimized));
     }
 
     static string QuoteIfNeeded(string value) =>
