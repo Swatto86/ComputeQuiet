@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Media;
 using WinForms = System.Windows.Forms;
 using WpfMessageBox = System.Windows.MessageBox;
+using IOPath = System.IO.Path;
+using IOFile = System.IO.File;
 
 namespace ComputeQuiet;
 
@@ -241,10 +243,10 @@ public partial class MainWindow : Window
 
     static ImageSource? LoadWindowIcon()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ComputeQuiet.ico");
-        if (!File.Exists(path))
-            path = Path.Combine(AppContext.BaseDirectory, "ComputeQuiet.ico");
-        if (!File.Exists(path))
+        var path = IOPath.Combine(AppContext.BaseDirectory, "Assets", "ComputeQuiet.ico");
+        if (!IOFile.Exists(path))
+            path = IOPath.Combine(AppContext.BaseDirectory, "ComputeQuiet.ico");
+        if (!IOFile.Exists(path))
             return null;
 
         return System.Windows.Media.Imaging.BitmapFrame.Create(
@@ -255,11 +257,11 @@ public partial class MainWindow : Window
 
     static Icon LoadTrayIcon()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ComputeQuiet.ico");
-        if (File.Exists(path))
+        var path = IOPath.Combine(AppContext.BaseDirectory, "Assets", "ComputeQuiet.ico");
+        if (IOFile.Exists(path))
             return new Icon(path);
-        path = Path.Combine(AppContext.BaseDirectory, "ComputeQuiet.ico");
-        if (File.Exists(path))
+        path = IOPath.Combine(AppContext.BaseDirectory, "ComputeQuiet.ico");
+        if (IOFile.Exists(path))
             return new Icon(path);
         return SystemIcons.Application;
     }
