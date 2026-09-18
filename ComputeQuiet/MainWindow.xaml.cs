@@ -154,7 +154,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "ComputeQuiet", MessageBoxButton.OK, MessageBoxImage.Warning);
+            WpfMessageBox.Show(ex.Message, "ComputeQuiet", MessageBoxButton.OK, MessageBoxImage.Warning);
             _suppressSettingEvents = true;
             StartWithWindowsCheck.IsChecked = AutoStart.IsEnabled();
             _suppressSettingEvents = false;
@@ -200,7 +200,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "ComputeQuiet", MessageBoxButton.OK, MessageBoxImage.Error);
+            WpfMessageBox.Show(ex.Message, "ComputeQuiet", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
