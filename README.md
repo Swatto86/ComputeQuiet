@@ -1,5 +1,3 @@
-> **Branch note:** This is a Cloud Agent .NET WinForms prototype built without access to the existing Tauri ComputeQuiet on `main`. Do not merge blindly — evaluate against the Rust product first.
-
 # ComputeQuiet
 
 Windows utility that parks background work so games, local AI, or other hungry processes can use the machine — then restores everything with one click.
