@@ -182,11 +182,9 @@ public sealed class QuietEngine
         {
             if (!IsWindowVisible(hwnd))
                 return true;
-            if (GetWindow(hwnd, GwOwner) != IntPtr.Zero)
-                return true; // owned popups still count as interactive via owner chain; include them too
-            _ = GetWindowThreadProcessId(hwnd, out var pid);
+            _ = NativeGetWindowThreadProcessId(hwnd, out uint pid);
             if (pid != 0)
-                pids.Add((int)pid);
+                pids.Add(unchecked((int)pid));
             return true;
         }, IntPtr.Zero);
         return pids;
@@ -197,8 +195,8 @@ public sealed class QuietEngine
         var hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero)
             return -1;
-        _ = GetWindowThreadProcessId(hwnd, out var pid);
-        return (int)pid;
+        _ = NativeGetWindowThreadProcessId(hwnd, out uint pid);
+        return unchecked((int)pid);
     }
 
     void ResumeProcesses(QuietState state)
@@ -254,8 +252,6 @@ public sealed class QuietEngine
 
     void LogLine(string message) => _log.Add($"{DateTime.Now:HH:mm:ss}  {message}");
 
-    const int GwOwner = 4;
-
     delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     [DllImport("user32.dll")]
@@ -263,9 +259,6 @@ public sealed class QuietEngine
 
     [DllImport("user32.dll")]
     static extern bool IsWindowVisible(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    static extern IntPtr GetWindow(IntPtr hWnd, int uCmd);
 
     [DllImport("ntdll.dll")]
     static extern int NtSuspendProcess(IntPtr processHandle);
@@ -282,6 +275,6 @@ public sealed class QuietEngine
     [DllImport("user32.dll")]
     static extern IntPtr GetForegroundWindow();
 
-    [DllImport("user32.dll")]
-    static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId")]
+    static extern uint NativeGetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 }
