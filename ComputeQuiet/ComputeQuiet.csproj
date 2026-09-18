@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\ComputeQuiet.ico</ApplicationIcon>
+    <RootNamespace>ComputeQuiet</RootNamespace>
+    <AssemblyName>ComputeQuiet</AssemblyName>
+    <Product>ComputeQuiet</Product>
+    <AssemblyTitle>ComputeQuiet</AssemblyTitle>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.1.0</Version>
+    <InformationalVersion>1.1.0</InformationalVersion>
+    <Company>Swatto</Company>
+    <Authors>Swatto</Authors>
+    <Copyright>Copyright (c) 2026 Swatto</Copyright>
+    <Description>Park background work so games and local AI can use the machine.</Description>
+    <PackageProjectUrl>https://origin.cursor.com</PackageProjectUrl>
+    <RepositoryUrl>https://origin.cursor.com</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>windows;gaming;performance;tray;powercfg</PackageTags>
+    <NeutralLanguage>en-GB</NeutralLanguage>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ComputeQuiet.Core\ComputeQuiet.Core.csproj" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\ComputeQuiet.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\ComputeQuiet.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\ComputeQuiet-*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

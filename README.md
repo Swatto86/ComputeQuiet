@@ -1,64 +1,61 @@
+> **Branch note:** This is a Cloud Agent .NET WinForms prototype built without access to the existing Tauri ComputeQuiet on `main`. Do not merge blindly — evaluate against the Rust product first.
+
 # ComputeQuiet
 
-A Windows tray app that frees resources for games, rendering, builds, video editing,
-local AI and other demanding work, then restores the background apps it stopped.
-Formerly GameQuiet; existing approvals and recovery journals remain compatible.
+Windows utility that parks background work so games, local AI, or other hungry processes can use the machine — then restores everything with one click.
 
-Windows requests administrator permission before launching ComputeQuiet. Cancelling UAC
-leaves the app closed. Child processes, including restored apps, inherit elevation.
+![ComputeQuiet](Assets/ComputeQuiet.png)
 
-1. **Scan PC** measures CPU, GPU, memory and I/O.
-2. **Assess with cloud AI** uses your signed-in Codex or Claude CLI. Only limited process
-   metadata is sent; no full paths, command lines, window titles or file contents.
-3. Review an app and choose **Close for session**. These choices apply to the exact
-   executable version. Ollama also needs the interruption permission in Settings.
-4. **Start quiet session** rechecks identities, saves recovery and applies your choices.
-5. **End session & restore** restarts only recorded workloads. Close the window to use the tray.
+## Features
 
-The window and tray distinguish **Quiet session**, **Partially quiet**, and **Needs
-attention** from recorded action outcomes. An unconfirmed stop is never presented as
-success or proof that the process is still running. Measurements are timestamped
-snapshots, not live readings; Scan PC refreshes them without closing anything. Restoring
-or clearing recovery invalidates old readings. Keep the app doing your intensive work
-on **Always keep**; only explicitly approved background workloads are selected.
-Unavailable GPU/I/O counters are shown as unavailable and sent to cloud assessment as
-unknown. Scans cover up to 80 processes above 5 MB in the current Windows session,
-plus the supported Ollama workload; they are not a complete system process inventory.
+- **GO QUIET / RESTORE** toggle
+- Stops noisy services (`SysMain`, `WSearch`, `DiagTrack`, …) and suspends known background hogs
+- Optional **Aggressive** mode for the whole user session (shell/OS kept; foreground app skipped)
+- **High Performance** power-plan switch while quiet (restored on exit)
+- **System tray** with Go Quiet / Restore / Exit; close can minimize to tray
+- **Start with Windows** (launches minimized to tray, elevated)
+- Keep-alive list for processes that must stay running
+- State in `%LocalAppData%\ComputeQuiet\`
 
-Cloud advice only informs your review; your explicit choices decide what is stopped, and
-they work offline. Cached advice expires after 24 hours. Nothing runs continuously while
-you game or build. No FPS improvement is promised: compare the
-same scene before/after, especially on systems already limited by game CPU work.
+Requires **Administrator** (UAC) for services, process suspend, and power plans.
 
-Ollama's active generations are interrupted. Its server and loaded models can be restored,
-but interrupted conversations cannot. Ordinary applications receive a normal close request;
-save prompts are respected. Reopening documents/tabs depends on the application's own
-session restore. Protected processes and unsupported restore paths are kept running.
-Workloads that respawn themselves are not repeatedly killed.
+## Build (Windows)
 
-## Requirements
+```powershell
+winget install Microsoft.DotNet.SDK.8
+cd ComputeQuiet
+.\build.ps1
+```
 
-Windows 10/11 x64, [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows),
-[Evergreen WebView2](https://developer.microsoft.com/microsoft-edge/webview2/), and an
-installed, signed-in native [Codex CLI](https://developers.openai.com/codex/cli/) or
-[Claude Code](https://code.claude.com/docs/en/setup) for cloud assessment. Assessment uses
-your provider account's applicable limits. Core actions and restoration do not need AI.
+Run `.\publish\ComputeQuiet.exe`.
 
-## Development
+## Tests
 
-Install Rust 1.98.1 (MSVC), the Windows C++ build tools and Node.js. Run `npm ci`, then
-`npm run dev`. `scripts/verify.ps1` runs formatting, checks, tests and real-webview E2E.
-Run verification from an elevated PowerShell so WebDriver can launch the administrator
-executable. The E2E harness uses installed `tauri-driver` and an Edge driver matching WebView2.
-Set `MSEDGEDRIVER` to its absolute path. `node tests/e2e.mjs --live` adds real cloud
-acceptance. Tests use disposable state and apps, not your running workloads.
+```powershell
+dotnet run --project ComputeQuiet.Tests
+```
 
-Launch **ComputeQuiet** from Start. For upgrade compatibility the executable stays at
-`%LOCALAPPDATA%\Programs\GameQuiet\GameQuiet.exe`, and state stays in
-`%LOCALAPPDATA%\GameQuiet`. Override with `GAMEQUIET_DATA_DIR` for isolated testing.
-Do not delete state while recovery entries remain. On startup after a crash, use Restore.
-Use Restore and quit before uninstalling. `scripts/uninstall.ps1` removes the installed
-launcher and binaries, preserving user state unless you remove it yourself after recovery.
+## Assets / metadata
 
-Source: [Cursor Origin](https://origin.cursor.com/swatto/ComputeQuiet). Local release;
-no remote update service or published release channel is configured.
+| File | Purpose |
+|------|---------|
+| `ComputeQuiet/Assets/ComputeQuiet.ico` | App + tray icon (16–256px) |
+| `ComputeQuiet/Assets/ComputeQuiet.png` | 512px brand mark |
+| `ComputeQuiet/Assets/ComputeQuiet-*.png` | Individual sizes |
+| Assembly `Version` / `Company` / `Product` | Set in `ComputeQuiet.csproj` (v1.1.0) |
+
+## Cursor Origin
+
+```bash
+# On a machine/agent with Origin auth:
+export CURSOR_API_KEY=...   # or rely on CURSOR_AUTH_TOKEN in cloud
+./publish-origin.sh ComputeQuiet
+```
+
+That creates the Origin repo and pushes `main` to `https://origin.cursor.com/<you>/ComputeQuiet.git`.
+
+## Usage tips
+
+1. Prefer balanced mode day-to-day; use Aggressive before a game/local AI run.
+2. Enable **Start with Windows** if you want tray access after login.
+3. Always **RESTORE** when finished (or use the tray menu).

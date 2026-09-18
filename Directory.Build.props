@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <Company>Swatto</Company>
+    <Authors>Swatto</Authors>
+    <Copyright>Copyright (c) 2026 Swatto</Copyright>
+    <Product>ComputeQuiet</Product>
+    <NeutralLanguage>en-GB</NeutralLanguage>
+  </PropertyGroup>
+</Project>
