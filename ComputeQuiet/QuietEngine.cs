@@ -118,8 +118,6 @@ public sealed class QuietEngine
     {
         var self = Environment.ProcessId;
         var foregroundPid = GetForegroundProcessId();
-        // Aggressive must not freeze the desktop: skip any PID that owns a visible window.
-        var interactivePids = options.Aggressive ? GetPidsWithVisibleWindows() : null;
 
         foreach (var process in Process.GetProcesses())
         {
@@ -141,22 +139,18 @@ public sealed class QuietEngine
                 if (sessionId == 0)
                     continue;
 
-                if (interactivePids is not null && interactivePids.Contains(process.Id))
+                // Aggressive must not freeze clickable apps — only park headless/background ones.
+                if (options.Aggressive)
                 {
-                    LogLine($"Kept interactive {name} ({process.Id})");
-                    continue;
-                }
-
-                // Extra guard: MainWindowHandle even if EnumWindows missed it.
-                try
-                {
-                    if (options.Aggressive && process.MainWindowHandle != IntPtr.Zero)
+                    IntPtr mainWindow;
+                    try { mainWindow = process.MainWindowHandle; }
+                    catch { continue; }
+                    if (mainWindow != IntPtr.Zero)
                     {
                         LogLine($"Kept windowed {name} ({process.Id})");
                         continue;
                     }
                 }
-                catch { /* ignore */ }
 
                 if (TrySuspend(process.Id))
                 {
@@ -175,27 +169,12 @@ public sealed class QuietEngine
         }
     }
 
-    static HashSet<int> GetPidsWithVisibleWindows()
-    {
-        var pids = new HashSet<int>();
-        EnumWindows((hwnd, _) =>
-        {
-            if (!IsWindowVisible(hwnd))
-                return true;
-            _ = NativeGetWindowThreadProcessId(hwnd, out uint pid);
-            if (pid != 0)
-                pids.Add(unchecked((int)pid));
-            return true;
-        }, IntPtr.Zero);
-        return pids;
-    }
-
     static int GetForegroundProcessId()
     {
         var hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero)
             return -1;
-        _ = NativeGetWindowThreadProcessId(hwnd, out uint pid);
+        NativeGetWindowThreadProcessId(hwnd, out uint pid);
         return unchecked((int)pid);
     }
 
@@ -251,14 +230,6 @@ public sealed class QuietEngine
     }
 
     void LogLine(string message) => _log.Add($"{DateTime.Now:HH:mm:ss}  {message}");
-
-    delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    static extern bool IsWindowVisible(IntPtr hWnd);
 
     [DllImport("ntdll.dll")]
     static extern int NtSuspendProcess(IntPtr processHandle);
