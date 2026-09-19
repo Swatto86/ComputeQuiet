@@ -217,3 +217,21 @@ fn applying_adds_new_targets_once_and_flips_the_flags() {
         catalogue::services(Os::Linux).len()
     );
 }
+
+#[test]
+fn a_custom_plan_named_for_performance_is_not_a_saving() {
+    assert!(is_performance_plan(
+        "c3f0a1b2-0000-4000-8000-000000000001",
+        "Revision - Ultra Performance"
+    ));
+    assert!(is_performance_plan(
+        "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c",
+        "High performance"
+    ));
+    assert!(is_performance_plan("performance", "performance"));
+    assert!(!is_performance_plan(
+        "381b4222-f694-41f0-9685-ff5bb260df2e",
+        "Balanced"
+    ));
+    assert!(!is_performance_plan("power-saver", "power-saver"));
+}

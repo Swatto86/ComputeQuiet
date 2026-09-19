@@ -679,6 +679,7 @@ table.scan td.why {
   max-width: 320px;
 }
 
+table.scan th.num,
 table.scan td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;

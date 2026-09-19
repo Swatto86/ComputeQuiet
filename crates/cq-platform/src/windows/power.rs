@@ -64,9 +64,13 @@ pub fn set_active(id: &str) -> Result<()> {
 }
 
 /// Choose the fastest plan the machine offers, activate it, and return the
-/// plan that was active before.
+/// plan that was active before. A plan already named for performance — a
+/// tuned custom one included — is left exactly as it is.
 pub fn set_performance() -> Result<PowerPlan> {
     let previous = active()?;
+    if cq_core::recommend::is_performance_plan(&previous.id, &previous.name) {
+        return Ok(previous);
+    }
     let available = list()?;
     let chosen = choose(&available).ok_or_else(|| {
         PlatformError::Unsupported("no performance power plan is installed".to_string())

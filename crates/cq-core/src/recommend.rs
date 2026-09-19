@@ -74,7 +74,7 @@ pub fn recommend(
 
     if caps.power
         && let Some(plan) = &snapshot.power_plan
-        && !is_performance_plan(&plan.id)
+        && !is_performance_plan(&plan.id, &plan.name)
     {
         out.push(Recommendation {
             kind: RecommendationKind::PowerPlan,
@@ -114,14 +114,19 @@ pub fn recommend(
 }
 
 /// Windows plan GUIDs for Ultimate and High performance, Linux's
-/// `performance` profile, and the fake platform's plan id.
-pub fn is_performance_plan(id: &str) -> bool {
-    matches!(
+/// `performance` profile, the fake platform's plan id — and any plan whose
+/// name says so, because a tuned custom plan ("Revision - Ultra Performance")
+/// is not a saving to be made, and switching it for the stock plan would be
+/// a step backwards.
+pub fn is_performance_plan(id: &str, name: &str) -> bool {
+    let by_id = matches!(
         id.to_ascii_lowercase().as_str(),
         "e9a42b02-d5df-448d-aa00-03f14749eb61"
             | "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
             | "performance"
-    )
+    );
+    let lowered = name.to_ascii_lowercase();
+    by_id || lowered.contains("performance") || lowered.contains("ultimate")
 }
 
 struct Group<'a> {
