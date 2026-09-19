@@ -3,7 +3,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cq_core::{Os, Profile, Recommendation, Risk, Settings, Snapshot, recommend};
+use cq_core::{Profile, Recommendation, Risk, Settings, Snapshot, recommend};
 use serde::Serialize;
 
 use crate::engine::Engine;
@@ -34,7 +34,7 @@ impl Engine {
     /// Take a fresh look at the machine against the saved profile.
     pub fn scan(&self) -> Result<ScanReport, AppError> {
         let settings = self.settings();
-        let names = recommend::service_names_to_query(&settings.profile, Os::CURRENT);
+        let names = recommend::service_names_to_query(&settings.profile, self.platform().os());
         let snapshot = self.platform().snapshot(&names)?;
         self.report(&settings.profile, &snapshot)
     }
@@ -54,7 +54,7 @@ impl Engine {
             &stats,
             &activity,
             cq_platform::current_pid(),
-            Os::CURRENT,
+            self.platform().os(),
             &self.platform().capabilities(),
         );
         Ok(ScanReport {

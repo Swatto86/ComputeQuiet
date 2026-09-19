@@ -128,6 +128,10 @@ fn query(name: &str) -> ServiceInfo {
 }
 
 impl Platform for Linux {
+    fn os(&self) -> cq_core::Os {
+        cq_core::Os::Linux
+    }
+
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             services: true,

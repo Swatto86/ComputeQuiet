@@ -22,9 +22,15 @@ use std::path::Path;
 
 pub use error::{PlatformError, Result};
 
-use cq_core::{Activity, Capabilities, PowerPlan, Snapshot, SystemStats};
+use cq_core::{Activity, Capabilities, Os, PowerPlan, Snapshot, SystemStats};
 
 pub trait Platform: Send + Sync {
+    /// The operating system this adapter models. The native adapters answer
+    /// with the host; the fake answers Windows wherever it runs, so the
+    /// catalogue, defaults and critical lists it is tested against never
+    /// change with the machine running the tests.
+    fn os(&self) -> Os;
+
     fn capabilities(&self) -> Capabilities;
 
     /// The process table plus the state of the named services and the active

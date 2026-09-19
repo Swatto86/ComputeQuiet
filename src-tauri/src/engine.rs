@@ -70,9 +70,10 @@ fn now() -> u64 {
 impl Engine {
     pub fn new(platform: Arc<dyn Platform>, data_dir: PathBuf) -> Engine {
         let mut startup_error = None;
-        let settings = Settings::load(&data_dir, Os::CURRENT).unwrap_or_else(|error| {
+        let os = platform.os();
+        let settings = Settings::load(&data_dir, os).unwrap_or_else(|error| {
             startup_error = Some(error.to_string());
-            Settings::default_for(Os::CURRENT)
+            Settings::default_for(os)
         });
         let journal = Journal::load(&data_dir).unwrap_or_else(|error| {
             startup_error = Some(error.to_string());
@@ -114,7 +115,7 @@ impl Engine {
             log: inner.log.clone(),
             capabilities: self.platform.capabilities(),
             data_dir: self.data_dir.display().to_string(),
-            os: Os::CURRENT,
+            os: self.platform.os(),
             recovered: inner.recovered,
             startup_error: inner.startup_error.clone(),
         }
@@ -170,7 +171,7 @@ impl Engine {
         };
         let caps = self.platform.capabilities();
         let names: Vec<String> = if settings.auto_scan {
-            cq_core::recommend::service_names_to_query(&settings.profile, Os::CURRENT)
+            cq_core::recommend::service_names_to_query(&settings.profile, self.platform.os())
         } else {
             settings
                 .profile
@@ -211,7 +212,7 @@ impl Engine {
             &profile,
             &snapshot,
             cq_platform::current_pid(),
-            Os::CURRENT,
+            self.platform.os(),
             &caps,
         );
 

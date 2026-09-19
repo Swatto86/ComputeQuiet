@@ -80,6 +80,10 @@ pub(crate) fn parse_print(output: &str) -> ServiceState {
 }
 
 impl Platform for MacOs {
+    fn os(&self) -> cq_core::Os {
+        cq_core::Os::MacOs
+    }
+
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             services: true,

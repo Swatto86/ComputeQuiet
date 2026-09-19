@@ -89,6 +89,10 @@ impl Default for Windows {
 }
 
 impl Platform for Windows {
+    fn os(&self) -> cq_core::Os {
+        cq_core::Os::Windows
+    }
+
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             services: self.elevated,

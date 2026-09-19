@@ -107,6 +107,10 @@ impl Fake {
 }
 
 impl Platform for Fake {
+    fn os(&self) -> cq_core::Os {
+        cq_core::Os::Windows
+    }
+
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             services: true,
