@@ -29,6 +29,13 @@ the decisions and constraints that are not visible in the code.
 - **No auto-updater yet.** Now possible because releases live on GitHub:
   a `latest.json` from GitHub Releases, a minisign key, `createUpdaterArtifacts`,
   and `tauri-plugin-updater` driven from Rust.
+- **2026-09-19 (1.1.0): the scanner acts on low risk only.** `auto_scan` is
+  on by default and parks low-risk finds for that run without editing the
+  saved targets; medium-risk finds (browsers, launchers, voice chat, Office)
+  are shown on the Scan tab and never applied unasked. Unknown programs are
+  suggested only where the platform can prove they own no window (Windows),
+  so a Linux or macOS user's IDE is never guessed at. The catalogue lives in
+  `crates/cq-core/src/catalogue.rs`; adding an entry needs a reason and a risk.
 - **Linux elevation is per action through polkit** (`systemctl` for system
   units, `pkexec` for the cache drop), never a root relaunch of the GUI.
   macOS reports power and memory actions as unavailable rather than

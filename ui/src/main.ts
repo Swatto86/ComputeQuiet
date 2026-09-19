@@ -12,6 +12,7 @@ import {
 } from "./bridge.ts";
 import { Dashboard } from "./dashboard.ts";
 import { showDialog, toast } from "./dialog.ts";
+import { Scan } from "./scan.ts";
 import { SettingsView } from "./settings-view.ts";
 import { Targets } from "./targets.ts";
 import { applyTheme } from "./theme.ts";
@@ -31,6 +32,7 @@ let busy = false;
 const dashboard = new Dashboard(() => void toggle());
 let targets: Targets;
 let settingsView: SettingsView;
+let scanView: Scan;
 
 async function boot(): Promise<void> {
   [settings, engine, info] = await Promise.all([
@@ -48,6 +50,16 @@ async function boot(): Promise<void> {
     current: () => settings,
     save: saveSettings,
     quit: () => void quitFlow(),
+  });
+  scanView = new Scan({
+    onSettings: (next) => {
+      settings = next;
+      targets.setProfile(next.profile);
+      renderAll();
+    },
+    goQuiet: async () => {
+      if (!engine.quiet) await toggle();
+    },
   });
 
   renderAll();
@@ -147,6 +159,7 @@ function wireTabs(): void {
     }
     if (view === "targets") void targets.refreshRunning();
     if (view === "settings") void settingsView.refreshAutostart();
+    if (view === "scan") void scanView.refresh();
   };
   for (const tab of tabs) {
     tab.addEventListener("click", () =>
@@ -154,7 +167,7 @@ function wireTabs(): void {
     );
   }
   document.addEventListener("keydown", (event) => {
-    if (!event.ctrlKey || event.key < "1" || event.key > "4") return;
+    if (!event.ctrlKey || event.key < "1" || event.key > "5") return;
     const tab = tabs[Number(event.key) - 1];
     if (tab) {
       event.preventDefault();

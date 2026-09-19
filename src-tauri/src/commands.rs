@@ -67,6 +67,22 @@ pub fn save_settings(engine: State<'_, Arc<Engine>>, settings: Settings) -> Resu
     engine.save_settings(settings)
 }
 
+/// Look at the machine and list what Quiet Mode could park.
+#[tauri::command]
+pub async fn scan(engine: State<'_, Arc<Engine>>) -> Result<crate::scan::ScanReport, AppError> {
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || engine.scan()).await?
+}
+
+/// Add accepted scan finds to the saved targets and return the new settings.
+#[tauri::command]
+pub fn apply_recommendations(
+    engine: State<'_, Arc<Engine>>,
+    accepted: Vec<cq_core::Recommendation>,
+) -> Result<Settings, AppError> {
+    engine.apply_recommendations(accepted)
+}
+
 /// Switch Quiet Mode on. Progress lines stream to the window as they happen.
 #[tauri::command]
 pub async fn go_quiet(

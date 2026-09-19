@@ -38,6 +38,8 @@ export const SEEDED_SETTINGS = {
   theme: "dark",
   notifications: false,
   restore_on_quit: true,
+  // Off so the quiet spec pins the profile path; scan.spec switches it on.
+  auto_scan: false,
 };
 
 export function prepareWorkspace(): string {

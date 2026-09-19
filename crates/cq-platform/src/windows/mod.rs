@@ -8,6 +8,7 @@
 //! UAC relaunch through `ShellExecuteW` with the `runas` verb.
 #![allow(unsafe_code)]
 
+mod activity;
 mod power;
 mod services;
 
@@ -16,7 +17,7 @@ use std::path::Path;
 use std::ptr::{null, null_mut};
 use std::time::Duration;
 
-use cq_core::{Capabilities, PowerPlan, ServiceInfo, Snapshot, SystemStats};
+use cq_core::{Activity, Capabilities, PowerPlan, ServiceInfo, Snapshot, SystemStats};
 use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, HANDLE, LUID, NTSTATUS};
 use windows_sys::Win32::Security::{
     AdjustTokenPrivileges, GetTokenInformation, LUID_AND_ATTRIBUTES, LookupPrivilegeValueW,
@@ -112,6 +113,10 @@ impl Platform for Windows {
 
     fn stats(&self) -> Result<SystemStats> {
         Ok(self.sampler.stats())
+    }
+
+    fn activity(&self) -> Activity {
+        activity::current()
     }
 
     fn suspend(&self, pid: u32, start_time: u64) -> Result<()> {

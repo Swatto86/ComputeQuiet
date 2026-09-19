@@ -36,6 +36,26 @@ Dependencies point inward: `src-tauri` → `cq-platform` → `cq-core`.
 
 Processes are identified by PID plus start time so a reused PID is refused.
 
+## The scan
+
+`cq_core::recommend` turns a snapshot, the live stats, the platform's
+`Activity` (which PIDs own a visible window, which is in front) and the
+profile into ranked `Recommendation`s: catalogue matches (`catalogue.rs`, per
+OS, each with a reason and a `Risk`), running services from the catalogue, a
+non-performance power plan, a file cache above 1 GB, and, only when the
+platform can report windows, unknown processes over 200 MB or 3% CPU that
+own none. Anything the profile already covers is returned marked
+`already_targeted` so the page can grey it out. `recommend::apply` folds
+accepted finds into a profile without touching existing entries.
+
+The engine exposes `scan()` (fresh snapshot) and `apply_recommendations()`
+(saves the profile). With `Settings::auto_scan` on, `go_quiet` reuses its own
+snapshot to compute the report and plans against the profile plus the
+low-risk, not-yet-targeted finds for that run only; the journal records what
+actually happened, so Restore is unchanged. Window ownership comes from
+`EnumWindows` on Windows; Linux and macOS report `Activity::known = false`
+and the scanner then names only recognised software.
+
 ## Platform adapters
 
 `cq-platform` is the only crate allowed `unsafe`, and only in its Windows

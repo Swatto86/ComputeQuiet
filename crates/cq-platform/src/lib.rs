@@ -22,7 +22,7 @@ use std::path::Path;
 
 pub use error::{PlatformError, Result};
 
-use cq_core::{Capabilities, PowerPlan, Snapshot, SystemStats};
+use cq_core::{Activity, Capabilities, PowerPlan, Snapshot, SystemStats};
 
 pub trait Platform: Send + Sync {
     fn capabilities(&self) -> Capabilities;
@@ -33,6 +33,13 @@ pub trait Platform: Send + Sync {
     fn snapshot(&self, service_names: &[String]) -> Result<Snapshot>;
 
     fn stats(&self) -> Result<SystemStats>;
+
+    /// Which processes own a visible window and which is in front. Platforms
+    /// that cannot tell return the default, and the scanner then only reports
+    /// software it recognises.
+    fn activity(&self) -> Activity {
+        Activity::default()
+    }
 
     /// `start_time` guards against PID reuse: a PID that now belongs to a
     /// different process is reported as not running rather than acted on.

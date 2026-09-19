@@ -656,6 +656,60 @@ code.path {
   display: none;
 }
 
+/* Scan */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.scan-head p {
+  margin: 4px 0 0;
+}
+
+table.scan td.why {
+  color: var(--fg-muted);
+  max-width: 320px;
+}
+
+table.scan td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+table.scan tr.targeted td {
+  color: var(--fg-muted);
+}
+
+.risk {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+}
+
+.risk-low {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.risk-medium {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
 @media (max-width: 900px) {
   .stats {
     grid-template-columns: repeat(2, 1fr);

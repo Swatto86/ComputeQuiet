@@ -38,6 +38,33 @@ export interface Settings {
   theme: Theme;
   notifications: boolean;
   restore_on_quit: boolean;
+  auto_scan: boolean;
+}
+
+export type Risk = "low" | "medium";
+
+export type RecommendationKind =
+  | { kind: "process"; action: ProcessAction }
+  | { kind: "service" }
+  | { kind: "power_plan" }
+  | { kind: "memory_purge" };
+
+export interface Recommendation {
+  kind: RecommendationKind;
+  name: string;
+  reason: string;
+  risk: Risk;
+  memory_bytes: number;
+  cpu_percent: number;
+  instances: number;
+  already_targeted: boolean;
+}
+
+export interface ScanReport {
+  recommendations: Recommendation[];
+  scanned_at: number;
+  activity_known: boolean;
+  cached_bytes: number;
 }
 
 export interface Capabilities {
@@ -86,6 +113,7 @@ export interface SystemStats {
   memory_total: number;
   memory_used: number;
   memory_available: number;
+  memory_free: number;
   process_count: number;
 }
 
@@ -138,6 +166,9 @@ export const api = {
   listProcesses: () => invoke<ProcessRow[]>("list_processes"),
   getSettings: () => invoke<Settings>("get_settings"),
   defaultSettings: () => invoke<Settings>("default_settings"),
+  scan: () => invoke<ScanReport>("scan"),
+  applyRecommendations: (accepted: Recommendation[]) =>
+    invoke<Settings>("apply_recommendations", { accepted }),
   saveSettings: (settings: Settings) =>
     invoke<void>("save_settings", { settings }),
   goQuiet: () => invoke<EngineState>("go_quiet"),

@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use cq_core::{
-    Capabilities, PowerPlan, ProcessInfo, ServiceInfo, ServiceState, Snapshot, SystemStats,
+    Activity, Capabilities, PowerPlan, ProcessInfo, ServiceInfo, ServiceState, Snapshot,
+    SystemStats,
 };
 
 use crate::Platform;
@@ -63,6 +64,9 @@ impl Fake {
             process(102, "GoogleUpdate.exe", 12),
             process(103, "Slack.exe", 640),
             process(300, "game.exe", 2048),
+            // Unknown to the catalogue, large, and without a window: what the
+            // scanner's heuristic is for.
+            process(400, "render-farm.exe", 900),
         ];
         let services = [
             ("SysMain", ServiceState::Running),
@@ -153,8 +157,20 @@ impl Platform for Fake {
             memory_total: 32 * GIB,
             memory_used: used,
             memory_available: 32 * GIB - used,
+            // Two gigabytes of file cache, so the scanner has something to purge.
+            memory_free: 30 * GIB - used,
             process_count: state.processes.len(),
         })
+    }
+
+    fn activity(&self) -> Activity {
+        // The game is in front and the shell has a window; everything else is
+        // background, including the unknown render farm.
+        Activity {
+            known: true,
+            foreground_pid: Some(300),
+            windowed_pids: vec![4, 300],
+        }
     }
 
     fn suspend(&self, pid: u32, start_time: u64) -> Result<()> {

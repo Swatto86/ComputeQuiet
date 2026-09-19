@@ -36,6 +36,14 @@ pub struct Settings {
     pub notifications: bool,
     /// Put everything back automatically when the app quits while quiet.
     pub restore_on_quit: bool,
+    /// Scan before going quiet and park the low-risk finds too, without
+    /// changing the saved targets. Absent in files written before it existed.
+    #[serde(default = "default_true")]
+    pub auto_scan: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Settings {
@@ -48,6 +56,7 @@ impl Settings {
             theme: Theme::System,
             notifications: true,
             restore_on_quit: true,
+            auto_scan: true,
         }
     }
 

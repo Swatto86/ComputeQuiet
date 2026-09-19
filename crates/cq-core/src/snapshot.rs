@@ -64,6 +64,18 @@ pub struct SystemStats {
     pub cpu_percent: f32,
     pub memory_total: u64,
     pub memory_used: u64,
+    /// Memory a new allocation can have, including reclaimable cache.
     pub memory_available: u64,
+    /// Memory nobody is using at all. `available - free` is the file cache.
+    pub memory_free: u64,
     pub process_count: usize,
+}
+
+/// Which processes the user can see. Only some platforms can tell; when
+/// `known` is false the scanner does not guess about unknown programs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct Activity {
+    pub known: bool,
+    pub foreground_pid: Option<u32>,
+    pub windowed_pids: Vec<u32>,
 }

@@ -83,6 +83,7 @@ impl Sampler {
             memory_total: system.total_memory(),
             memory_used: system.used_memory(),
             memory_available: system.available_memory(),
+            memory_free: system.free_memory(),
             process_count,
         }
     }

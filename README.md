@@ -29,13 +29,22 @@ Your own "never touch" list sits on top of that.
 ## Using it
 
 1. Open ComputeQuiet. The dashboard shows live CPU, memory and process figures.
-2. Review **Targets**: the built-in list of background hogs for your platform,
+2. Open **Scan** to see where savings can be made right now: recognised
+   background software that is not yet a target, large programs with no
+   window, stoppable services that are running, a non-performance power plan
+   and a large file cache. Each row shows its cost, why it is safe and a risk
+   level; low-risk rows are pre-ticked. *Add selected & Go Quiet* does both.
+3. Review **Targets**: the built-in list of background hogs for your platform,
    with a running/not-running indicator. Add any running program by name,
    choose Suspend or Close & relaunch, add services, and save.
-3. Press the big button. The activity log shows every step and anything left
-   alone (with the reason). The tray icon turns amber while Quiet Mode is on.
-4. Press it again, or use the tray menu, to restore. Quitting while quiet
+4. Press the big button. With *Scan before going quiet* on (the default),
+   the run also parks the low-risk finds without changing your saved targets.
+   The activity log shows every step and anything left alone (with the
+   reason). The tray icon turns amber while Quiet Mode is on.
+5. Press it again, or use the tray menu, to restore. Quitting while quiet
    offers to restore first.
+
+![The Scan tab](docs/scan.png)
 
 **Windows and administrator rights.** Stopping services and purging memory
 need an elevated process. ComputeQuiet starts unelevated so it can run at

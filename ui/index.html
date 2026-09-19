@@ -18,6 +18,7 @@
         <h1>ComputeQuiet</h1>
         <nav class="tabs" role="tablist" aria-label="Sections">
           <button class="tab" role="tab" data-view="dashboard" aria-selected="true" id="tab-dashboard">Dashboard</button>
+          <button class="tab" role="tab" data-view="scan" aria-selected="false" id="tab-scan">Scan</button>
           <button class="tab" role="tab" data-view="targets" aria-selected="false" id="tab-targets">Targets</button>
           <button class="tab" role="tab" data-view="settings" aria-selected="false" id="tab-settings">Settings</button>
           <button class="tab" role="tab" data-view="about" aria-selected="false" id="tab-about">About</button>
@@ -88,6 +89,29 @@
           </div>
         </section>
 
+        <section id="view-scan" class="view" role="tabpanel" aria-labelledby="tab-scan" hidden>
+          <div class="stack">
+            <div class="card scan-head">
+              <div>
+                <h3>Where savings can be made</h3>
+                <p class="muted" id="scan-summary">Press Scan to see what could be parked right now.</p>
+              </div>
+              <button id="scan-run" type="button" class="primary">Scan now</button>
+            </div>
+            <div class="card">
+              <table class="targets scan">
+                <thead><tr><th>Park</th><th>What</th><th>Action</th><th>Why</th><th>Risk</th><th>Memory</th><th>CPU</th></tr></thead>
+                <tbody id="scan-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="scan-apply" type="button">Add selected to targets</button>
+            <button id="scan-apply-quiet" type="button" class="primary">Add selected &amp; Go Quiet</button>
+            <span id="scan-status" class="muted" aria-live="polite"></span>
+          </div>
+        </section>
+
         <section id="view-targets" class="view" role="tabpanel" aria-labelledby="tab-targets" hidden>
           <div class="cards">
             <div class="card card-wide">
@@ -152,6 +176,7 @@
               <label class="check"><input type="checkbox" id="set-close-tray" /> <span>Closing the window keeps ComputeQuiet in the tray</span></label>
               <label class="check"><input type="checkbox" id="set-notify" /> <span>Notify when Quiet Mode is toggled from the tray</span></label>
               <label class="check"><input type="checkbox" id="set-restore-quit" /> <span>Restore everything automatically when quitting</span></label>
+              <label class="check"><input type="checkbox" id="set-auto-scan" /> <span>Scan before going quiet and park the low-risk finds too</span></label>
               <label class="row-label"><span>Theme</span>
                 <select id="set-theme"><option value="system">Match system</option><option value="dark">Dark</option><option value="light">Light</option></select>
               </label>

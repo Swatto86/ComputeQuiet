@@ -7,6 +7,7 @@ mod commands;
 mod engine;
 mod error;
 mod rows;
+mod scan;
 mod tray;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -102,6 +103,8 @@ pub fn run() {
             commands::get_settings,
             commands::default_settings,
             commands::save_settings,
+            commands::scan,
+            commands::apply_recommendations,
             commands::go_quiet,
             commands::restore,
             commands::frontend_ready,

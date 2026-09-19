@@ -138,6 +138,10 @@ impl Engine {
         Ok(self.platform.stats()?)
     }
 
+    pub(crate) fn platform(&self) -> &dyn Platform {
+        self.platform.as_ref()
+    }
+
     pub fn processes(&self) -> Result<Vec<ProcessRow>, AppError> {
         let snapshot = self.platform.snapshot(&[])?;
         Ok(fold_processes(snapshot.processes))
@@ -165,16 +169,46 @@ impl Engine {
             inner.settings.clone()
         };
         let caps = self.platform.capabilities();
-        let names: Vec<String> = settings
-            .profile
-            .services
-            .iter()
-            .filter(|s| s.enabled)
-            .map(|s| s.name.clone())
-            .collect();
+        let names: Vec<String> = if settings.auto_scan {
+            cq_core::recommend::service_names_to_query(&settings.profile, Os::CURRENT)
+        } else {
+            settings
+                .profile
+                .services
+                .iter()
+                .filter(|s| s.enabled)
+                .map(|s| s.name.clone())
+                .collect()
+        };
         let snapshot = self.platform.snapshot(&names)?;
+
+        // With auto-scan on, this run also parks the low-risk finds. The saved
+        // targets are untouched; the journal records what actually happened.
+        let mut log = Vec::new();
+        let profile = if settings.auto_scan {
+            let report = self.report(&settings.profile, &snapshot)?;
+            let added = crate::scan::low_risk_additions(&report.recommendations);
+            if !added.is_empty() {
+                let line = LogLine {
+                    label: format!("Scan added {} low-risk target(s)", added.len()),
+                    ok: true,
+                    detail: Some(
+                        added
+                            .iter()
+                            .map(|r| r.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    ),
+                };
+                progress(line.clone());
+                log.push(line);
+            }
+            cq_core::recommend::apply(&settings.profile, &added)
+        } else {
+            settings.profile.clone()
+        };
         let plan = build_plan(
-            &settings.profile,
+            &profile,
             &snapshot,
             cq_platform::current_pid(),
             Os::CURRENT,
@@ -183,7 +217,6 @@ impl Engine {
 
         let mut journal = Journal::new(now());
         journal.save(&self.data_dir)?;
-        let mut log = Vec::new();
         for step in &plan.steps {
             let line = match self.execute(step) {
                 Ok(done) => {
@@ -345,6 +378,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let engine = engine(dir.path());
         let mut settings = engine.settings();
+        // This test pins the profile path; scan.rs covers the auto additions.
+        settings.auto_scan = false;
         settings.profile.services = vec![cq_core::ServiceTarget {
             name: "SysMain".into(),
             enabled: true,
