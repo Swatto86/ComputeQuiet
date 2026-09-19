@@ -10,7 +10,9 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use cq_core::{ProcessInfo, SystemStats};
-use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+use sysinfo::{
+    Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, System, UpdateKind,
+};
 
 use crate::error::{PlatformError, Result};
 
@@ -95,7 +97,10 @@ impl Sampler {
             ProcessRefreshKind::nothing(),
         );
         match system.process(target) {
-            Some(process) if process.start_time() == start_time => Ok(()),
+            Some(process) if process.start_time() == start_time && is_live(process) => Ok(()),
+            Some(process) if !is_live(process) => {
+                Err(PlatformError::NotRunning(format!("PID {pid}")))
+            }
             Some(_) => Err(PlatformError::NotRunning(format!(
                 "PID {pid} (it now belongs to a different program)"
             ))),
@@ -103,6 +108,9 @@ impl Sampler {
         }
     }
 
+    /// A zombie is not alive: it has exited and only awaits its parent's
+    /// `wait`. Counting it as running made `close` report a killed process
+    /// as still there on Linux.
     pub fn is_alive(&self, pid: u32) -> bool {
         let mut system = self.lock();
         let target = Pid::from_u32(pid);
@@ -111,7 +119,7 @@ impl Sampler {
             true,
             ProcessRefreshKind::nothing(),
         );
-        system.process(target).is_some()
+        system.process(target).is_some_and(is_live)
     }
 
     /// Poll until the process is gone or the timeout passes.
@@ -125,6 +133,15 @@ impl Sampler {
         }
         !self.is_alive(pid)
     }
+}
+
+/// Running, sleeping, stopped or otherwise present — anything but a process
+/// that has already exited and is waiting to be reaped.
+fn is_live(process: &Process) -> bool {
+    !matches!(
+        process.status(),
+        ProcessStatus::Zombie | ProcessStatus::Dead
+    )
 }
 
 /// Start a program the way it was running before it was closed. The first
@@ -149,10 +166,19 @@ pub fn spawn_detached(exe: &Path, args: &[String], cwd: Option<&Path>) -> Result
         // this process's Ctrl-C group.
         command.creation_flags(0x0000_0008 | 0x0000_0200);
     }
-    command
+    let mut child = command
         .spawn()
-        .map(drop)
-        .map_err(|e| PlatformError::io(format!("starting {}", exe.display()), e))
+        .map_err(|e| PlatformError::io(format!("starting {}", exe.display()), e))?;
+    // Reap the child when it eventually exits. Dropping the handle would leave
+    // a zombie on Unix for as long as ComputeQuiet runs, and a later `close`
+    // of that program would then wait on a corpse that never disappears.
+    std::thread::Builder::new()
+        .name(format!("reap {}", exe.display()))
+        .spawn(move || {
+            let _ = child.wait();
+        })
+        .map_err(|e| PlatformError::io("starting the reaper thread", e))?;
+    Ok(())
 }
 
 /// Run a system tool with structured arguments and capture its output.
