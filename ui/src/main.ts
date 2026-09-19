@@ -109,6 +109,9 @@ function renderAbout(): void {
 function needsElevation(): boolean {
   const caps = engine.capabilities;
   if (caps.elevated || !caps.can_elevate) return false;
+  // A journal recovered from an elevated session holds stopped services that
+  // only an elevated copy can start again.
+  if (engine.quiet) return engine.summary.services_stopped > 0;
   const profile = settings.profile;
   return profile.services.some((s) => s.enabled) || profile.purge_memory;
 }
@@ -119,8 +122,9 @@ function renderBanner(): void {
   const action = byId<HTMLButtonElement>("banner-action");
   if (banner.dataset["dismissed"] === "1") return;
   if (needsElevation()) {
-    text.textContent =
-      "Stopping services and purging memory need administrator rights.";
+    text.textContent = engine.quiet
+      ? "Restoring the stopped services needs administrator rights; the elevated copy picks up this session."
+      : "Stopping services and purging memory need administrator rights.";
     action.textContent = "Relaunch as administrator";
     action.hidden = false;
     banner.hidden = false;

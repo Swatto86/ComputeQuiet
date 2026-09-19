@@ -142,15 +142,14 @@ pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<AutostartStatus, A
     autostart::set(&app, enabled)
 }
 
-/// Start an elevated copy and leave. Refused while quiet: the journal belongs
-/// to this process's view of the machine and the new one must start clean.
+/// Start an elevated copy and leave. Allowed while quiet: the journal is on
+/// disk, this process exits without touching it, and the elevated copy
+/// recovers it — which is exactly how an unelevated launch gets to restore
+/// the services an earlier elevated session stopped.
 #[tauri::command]
 pub fn relaunch_elevated(app: AppHandle, engine: State<'_, Arc<Engine>>) -> Result<(), AppError> {
-    if engine.is_quiet() {
-        return Err(AppError::new(
-            "quiet",
-            "Restore first, then relaunch as administrator",
-        ));
+    if engine.state().busy {
+        return Err(AppError::new("busy", "Wait for the current run to finish"));
     }
     let exe = std::env::current_exe().map_err(|e| AppError::new("app", e.to_string()))?;
     let platform = crate::platform_for_relaunch();
