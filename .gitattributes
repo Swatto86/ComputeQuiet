@@ -1,0 +1,8 @@
+# Shell scripts and the gate must be LF even on a Windows checkout: Bash
+# rejects CRLF, and CI runs them on Linux.
+*.sh text eol=lf
+*.mjs text eol=lf
+* text=auto
+*.png binary
+*.ico binary
+*.icns binary

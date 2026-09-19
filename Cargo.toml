@@ -1,0 +1,58 @@
+[workspace]
+members = ["crates/*", "src-tauri"]
+resolver = "3"
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://origin.cursor.com/swatto/ComputeQuiet"
+
+[workspace.dependencies]
+cq-core = { path = "crates/cq-core" }
+cq-platform = { path = "crates/cq-platform" }
+anyhow = "1"
+dirs = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.39"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
+
+# Compile-speed defaults from ~/.agents/rust-build.md: workspace crates stay
+# un-optimised with line tables only; dependencies get light optimisation once.
+[profile.dev]
+incremental = true
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 1
+debug = false
+
+[profile.dev.build-override]
+opt-level = 3
+
+[profile.debugging]
+inherits = "dev"
+debug = true
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"
+
+# The owner does not read Rust, so structure is enforced by the build rather
+# than by review. The 400-line file cap is checked by scripts/verify.sh.
+[workspace.lints.rust]
+# Only cq-platform's Windows adapter needs FFI (process suspend, token
+# elevation, standby-list purge). It opts out explicitly and says why.
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+too_many_lines = "warn"
+cognitive_complexity = "warn"
+module_inception = "warn"
+unwrap_used = "warn"
+expect_used = "warn"

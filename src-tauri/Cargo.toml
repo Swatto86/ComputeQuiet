@@ -1,0 +1,42 @@
+[package]
+name = "computequiet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Free the machine for games and local AI, then put everything back"
+
+[lib]
+name = "computequiet_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+cq-core = { workspace = true }
+cq-platform = { workspace = true }
+anyhow = { workspace = true }
+dirs = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+tokio = { workspace = true }
+
+[target.'cfg(not(windows))'.dependencies]
+tauri-plugin-autostart = "2"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
+
+# `fake-platform` swaps the OS adapter for an in-memory one so the WebDriver
+# suite can drive the real binary without touching real services. Off by
+# default, so `tauri build` excludes it; verify.sh asserts a release-config
+# build never enables it.
+[features]
+default = []
+fake-platform = ["cq-platform/fake"]

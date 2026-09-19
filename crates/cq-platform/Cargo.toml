@@ -1,0 +1,46 @@
+[package]
+name = "cq-platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ComputeQuiet OS adapters: processes, services, power plans, memory, elevation"
+
+[dependencies]
+cq-core = { workspace = true }
+sysinfo = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.31", features = ["signal", "user", "process"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+# In-memory adapter for the WebDriver suite and shell tests. Never on by default.
+fake = []
+
+# This crate is the one place FFI is allowed, and only in the Windows adapter:
+# NtSuspendProcess/NtResumeProcess, token elevation and the standby-list purge
+# have no safe wrapper crate. The workspace forbids `unsafe` everywhere else;
+# `deny` here lets that single module opt in with `#![allow(unsafe_code)]`.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+too_many_lines = "warn"
+cognitive_complexity = "warn"
+module_inception = "warn"
+unwrap_used = "warn"
+expect_used = "warn"

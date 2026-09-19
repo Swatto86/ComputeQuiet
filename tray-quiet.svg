@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Tray mark, Quiet Mode on: the ring lights up amber. -->
+  <path d="M 340 240 A 330 330 0 1 0 684 240" fill="none" stroke="#f59e0b" stroke-width="110" stroke-linecap="round"/>
+  <rect x="372" y="360" width="110" height="300" rx="55" fill="#ffffff"/>
+  <rect x="542" y="360" width="110" height="300" rx="55" fill="#ffffff"/>
+</svg>

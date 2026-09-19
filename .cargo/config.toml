@@ -1,0 +1,10 @@
+# Windows: an 8 MB main-thread stack (a Tauri app built with LTO embeds the
+# whole frontend in one deep initialiser frame and the 1 MB default overflowed
+# on a sibling project), and a statically linked MSVC C++ runtime so the
+# portable executable does not import VCRUNTIME140*.dll from a redistributable
+# that a clean Windows install does not have.
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "link-arg=/STACK:8388608",
+    "-C", "target-feature=+crt-static",
+]

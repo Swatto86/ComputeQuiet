@@ -1,0 +1,70 @@
+# The gate, on every platform the app claims to support. Each job runs the
+# same scripts/verify.sh a developer runs locally.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: ubuntu-latest
+          - os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: ${{ matrix.os }}
+
+      # Tauri's Linux backend is webkit2gtk, which is not on the runner image.
+      - name: Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            libxdo-dev webkit2gtk-driver xvfb dbus-x11
+
+      - name: Pinned native WebDriver
+        if: matrix.os != 'macos-latest'
+        shell: bash
+        run: |
+          bash scripts/setup-tauri-driver.sh
+          echo "$PWD/.webdriver" >> "$GITHUB_PATH"
+
+      - name: Match EdgeDriver to WebView2
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./scripts/setup-e2e.ps1
+
+      - name: Gate
+        shell: bash
+        run: ./scripts/verify.sh
+
+      - name: Failed desktop evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-failure-${{ matrix.os }}
+          path: ${{ runner.temp }}/computequiet-failure.*
+          retention-days: 3

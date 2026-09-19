@@ -1,0 +1,135 @@
+//! Power plans through `powercfg`, the supported tool for the job.
+//!
+//! Ultimate Performance is preferred when the machine exposes it; otherwise
+//! High performance. Plan GUIDs pass through a strict format check before
+//! reaching the command line, including the one read back from the journal.
+
+use cq_core::PowerPlan;
+
+use crate::error::{PlatformError, Result};
+use crate::procs::run_tool;
+
+const ULTIMATE: &str = "e9a42b02-d5df-448d-aa00-03f14749eb61";
+const HIGH_PERFORMANCE: &str = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
+
+/// Parse one `powercfg` line: `Power Scheme GUID: <guid>  (<name>) *`.
+pub(crate) fn parse_line(line: &str) -> Option<PowerPlan> {
+    let rest = line.trim().strip_prefix("Power Scheme GUID:")?.trim();
+    let (id, tail) = rest.split_once(char::is_whitespace)?;
+    let start = tail.find('(')?;
+    let end = tail.rfind(')')?;
+    if end <= start {
+        return None;
+    }
+    let id = id.trim().to_ascii_lowercase();
+    if !is_guid(&id) {
+        return None;
+    }
+    Some(PowerPlan {
+        id,
+        name: tail[start + 1..end].trim().to_string(),
+    })
+}
+
+pub(crate) fn is_guid(text: &str) -> bool {
+    let parts: Vec<&str> = text.split('-').collect();
+    parts.len() == 5
+        && [8, 4, 4, 4, 12]
+            .iter()
+            .zip(&parts)
+            .all(|(len, part)| part.len() == *len && part.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+pub fn active() -> Result<PowerPlan> {
+    let output = run_tool("powercfg", &["/getactivescheme"])?;
+    output.lines().find_map(parse_line).ok_or_else(|| {
+        PlatformError::Other(format!(
+            "could not read the active power plan from: {output}"
+        ))
+    })
+}
+
+fn list() -> Result<Vec<PowerPlan>> {
+    let output = run_tool("powercfg", &["/list"])?;
+    Ok(output.lines().filter_map(parse_line).collect())
+}
+
+pub fn set_active(id: &str) -> Result<()> {
+    if !is_guid(id) {
+        return Err(PlatformError::Other(format!(
+            "{id:?} is not a power plan GUID"
+        )));
+    }
+    run_tool("powercfg", &["/setactive", id]).map(drop)
+}
+
+/// Choose the fastest plan the machine offers, activate it, and return the
+/// plan that was active before.
+pub fn set_performance() -> Result<PowerPlan> {
+    let previous = active()?;
+    let available = list()?;
+    let chosen = choose(&available).ok_or_else(|| {
+        PlatformError::Unsupported("no performance power plan is installed".to_string())
+    })?;
+    if chosen.id != previous.id {
+        set_active(&chosen.id)?;
+    }
+    Ok(previous)
+}
+
+pub(crate) fn choose(available: &[PowerPlan]) -> Option<&PowerPlan> {
+    [ULTIMATE, HIGH_PERFORMANCE]
+        .iter()
+        .find_map(|wanted| available.iter().find(|plan| plan.id == *wanted))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn powercfg_lines_parse_and_junk_does_not() {
+        let plan =
+            parse_line("Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced) *")
+                .unwrap();
+        assert_eq!(plan.id, "381b4222-f694-41f0-9685-ff5bb260df2e");
+        assert_eq!(plan.name, "Balanced");
+        let custom = parse_line(
+            "Power Scheme GUID: 8C5E7FDA-E8BF-4A96-9A85-A6E23A8C635C  (High (performance))",
+        )
+        .unwrap();
+        assert_eq!(custom.name, "High (performance)");
+        assert_eq!(custom.id, HIGH_PERFORMANCE);
+        assert!(parse_line("Existing Power Schemes (* Active)").is_none());
+        assert!(parse_line("Power Scheme GUID: not-a-guid (x)").is_none());
+    }
+
+    #[test]
+    fn ultimate_is_preferred_over_high_performance_and_nothing_else_counts() {
+        let plans = vec![
+            PowerPlan {
+                id: "381b4222-f694-41f0-9685-ff5bb260df2e".into(),
+                name: "Balanced".into(),
+            },
+            PowerPlan {
+                id: HIGH_PERFORMANCE.into(),
+                name: "High performance".into(),
+            },
+            PowerPlan {
+                id: ULTIMATE.into(),
+                name: "Ultimate Performance".into(),
+            },
+        ];
+        assert_eq!(choose(&plans).unwrap().id, ULTIMATE);
+        assert_eq!(choose(&plans[..2]).unwrap().id, HIGH_PERFORMANCE);
+        assert!(choose(&plans[..1]).is_none());
+        assert!(set_active("'; shutdown").is_err());
+    }
+
+    #[test]
+    fn the_active_plan_can_be_read_on_this_machine() {
+        let plan = active().unwrap();
+        assert!(is_guid(&plan.id));
+        assert!(!plan.name.is_empty());
+    }
+}

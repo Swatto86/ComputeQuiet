@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ComputeQuiet</title>
+    <link rel="stylesheet" href="/src/theme.css" />
+    <link rel="stylesheet" href="/src/app.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <svg class="mark" viewBox="0 0 1024 1024" aria-hidden="true">
+          <path d="M 372 268 A 300 300 0 1 0 652 268" fill="none" stroke="var(--accent)" stroke-width="88" stroke-linecap="round" />
+          <rect x="404" y="392" width="84" height="240" rx="42" fill="var(--fg)" />
+          <rect x="536" y="392" width="84" height="240" rx="42" fill="var(--fg)" />
+        </svg>
+        <h1>ComputeQuiet</h1>
+        <nav class="tabs" role="tablist" aria-label="Sections">
+          <button class="tab" role="tab" data-view="dashboard" aria-selected="true" id="tab-dashboard">Dashboard</button>
+          <button class="tab" role="tab" data-view="targets" aria-selected="false" id="tab-targets">Targets</button>
+          <button class="tab" role="tab" data-view="settings" aria-selected="false" id="tab-settings">Settings</button>
+          <button class="tab" role="tab" data-view="about" aria-selected="false" id="tab-about">About</button>
+        </nav>
+        <span class="spacer"></span>
+        <span id="status-pill" class="pill pill-idle" aria-live="polite">Idle</span>
+      </header>
+
+      <div id="banner" class="banner" hidden>
+        <span id="banner-text"></span>
+        <button id="banner-action" type="button" class="small"></button>
+        <button id="banner-dismiss" type="button" class="small ghost" aria-label="Dismiss">✕</button>
+      </div>
+
+      <main>
+        <section id="view-dashboard" class="view" role="tabpanel" aria-labelledby="tab-dashboard">
+          <div class="hero">
+            <button id="toggle" type="button" class="power" aria-pressed="false" aria-describedby="hero-sub">
+              <span class="power-ring" aria-hidden="true"></span>
+              <svg class="power-glyph" viewBox="0 0 1024 1024" aria-hidden="true">
+                <path d="M 372 268 A 300 300 0 1 0 652 268" fill="none" stroke="currentColor" stroke-width="72" stroke-linecap="round" />
+                <rect x="404" y="392" width="84" height="240" rx="42" fill="currentColor" />
+                <rect x="536" y="392" width="84" height="240" rx="42" fill="currentColor" />
+              </svg>
+              <span class="power-label" id="power-label">Go Quiet</span>
+            </button>
+            <div class="hero-text">
+              <h2 id="hero-title">Normal mode</h2>
+              <p id="hero-sub">Everything is running as usual. Switch on Quiet Mode before a game or a model run.</p>
+              <p id="hero-since" class="muted" hidden></p>
+            </div>
+          </div>
+
+          <div class="stats" aria-label="Live resources">
+            <div class="stat">
+              <span class="stat-label">CPU</span>
+              <div class="gauge" role="meter" aria-label="CPU usage" aria-valuemin="0" aria-valuemax="100" id="cpu-gauge"><div class="gauge-fill" id="cpu-fill"></div></div>
+              <span class="stat-value" id="cpu-value">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Memory</span>
+              <div class="gauge" role="meter" aria-label="Memory usage" aria-valuemin="0" aria-valuemax="100" id="mem-gauge"><div class="gauge-fill" id="mem-fill"></div></div>
+              <span class="stat-value" id="mem-value">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Processes</span>
+              <span class="stat-big" id="proc-value">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Memory freed</span>
+              <span class="stat-big accent" id="freed-value">—</span>
+            </div>
+          </div>
+
+          <div class="cards">
+            <div class="card">
+              <h3>What Quiet Mode did</h3>
+              <ul id="summary" class="plain"><li class="muted">Nothing yet.</li></ul>
+            </div>
+            <div class="card card-wide">
+              <h3>Activity</h3>
+              <ol id="log" class="log" aria-live="polite"><li class="muted">No activity yet.</li></ol>
+            </div>
+            <div class="card">
+              <h3>Left alone</h3>
+              <ul id="skipped" class="plain"><li class="muted">—</li></ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-targets" class="view" role="tabpanel" aria-labelledby="tab-targets" hidden>
+          <div class="cards">
+            <div class="card card-wide">
+              <div class="card-head">
+                <h3>Processes to park</h3>
+                <span class="muted">Suspend keeps a program frozen in place; Close quits it and relaunches it on restore.</span>
+              </div>
+              <form id="process-add" class="row">
+                <label class="grow">
+                  <span class="sr-only">Process name</span>
+                  <input id="process-name" list="running-processes" placeholder="Add a program (name or pick a running one)" autocomplete="off" />
+                  <datalist id="running-processes"></datalist>
+                </label>
+                <select id="process-action" aria-label="Action for the new program">
+                  <option value="suspend">Suspend</option>
+                  <option value="close">Close &amp; relaunch</option>
+                </select>
+                <button type="submit" class="small">Add</button>
+              </form>
+              <table class="targets">
+                <thead><tr><th>On</th><th>Program</th><th>Action</th><th>Now</th><th></th></tr></thead>
+                <tbody id="process-targets"></tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Services to stop</h3><span class="muted" id="service-hint"></span></div>
+              <form id="service-add" class="row">
+                <label class="grow"><span class="sr-only">Service name</span><input id="service-name" placeholder="Service name" autocomplete="off" /></label>
+                <button type="submit" class="small">Add</button>
+              </form>
+              <table class="targets">
+                <thead><tr><th>On</th><th>Service</th><th></th></tr></thead>
+                <tbody id="service-targets"></tbody>
+              </table>
+            </div>
+            <div class="card">
+              <h3>System</h3>
+              <label class="check"><input type="checkbox" id="opt-power" /> <span>Switch to the performance power plan</span></label>
+              <label class="check"><input type="checkbox" id="opt-purge" /> <span>Purge cached memory once everything is parked</span></label>
+              <h4>Never touch</h4>
+              <p class="muted">The desktop, input, audio, security and terminals are always protected. Add your own here.</p>
+              <form id="keep-add" class="row">
+                <label class="grow"><span class="sr-only">Program to keep alive</span><input id="keep-name" placeholder="Program name" autocomplete="off" /></label>
+                <button type="submit" class="small">Add</button>
+              </form>
+              <ul id="keep-alive" class="chips"></ul>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="targets-save" type="button" class="primary">Save changes</button>
+            <button id="targets-reset" type="button">Restore defaults</button>
+            <span id="targets-status" class="muted" aria-live="polite"></span>
+          </div>
+        </section>
+
+        <section id="view-settings" class="view" role="tabpanel" aria-labelledby="tab-settings" hidden>
+          <div class="cards">
+            <div class="card card-wide">
+              <h3>Behaviour</h3>
+              <label class="check"><input type="checkbox" id="set-autostart" /> <span>Start with the system</span> <span id="autostart-note" class="muted"></span></label>
+              <label class="check"><input type="checkbox" id="set-hidden" /> <span>Start hidden in the tray</span></label>
+              <label class="check"><input type="checkbox" id="set-close-tray" /> <span>Closing the window keeps ComputeQuiet in the tray</span></label>
+              <label class="check"><input type="checkbox" id="set-notify" /> <span>Notify when Quiet Mode is toggled from the tray</span></label>
+              <label class="check"><input type="checkbox" id="set-restore-quit" /> <span>Restore everything automatically when quitting</span></label>
+              <label class="row-label"><span>Theme</span>
+                <select id="set-theme"><option value="system">Match system</option><option value="dark">Dark</option><option value="light">Light</option></select>
+              </label>
+            </div>
+            <div class="card">
+              <h3>Storage</h3>
+              <p class="muted">Settings and the undo journal live in:</p>
+              <code id="data-dir" class="path"></code>
+              <p class="muted">Set <code>COMPUTEQUIET_DATA_DIR</code> to keep them beside a portable copy.</p>
+            </div>
+            <div class="card">
+              <h3>Quit</h3>
+              <p class="muted">The window closes to the tray. This is the way out.</p>
+              <button id="quit" type="button" class="danger">Quit ComputeQuiet</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-about" class="view" role="tabpanel" aria-labelledby="tab-about" hidden>
+          <div class="card card-wide about">
+            <h3>ComputeQuiet <span id="about-version" class="muted"></span></h3>
+            <p>Frees the machine for games and local AI: stops background services, parks sync clients and updaters, switches to a performance power plan and purges cached memory. One click puts everything back, and an undo journal on disk means a crash or reboot cannot lose the list.</p>
+            <dl class="facts">
+              <dt>Platform</dt><dd id="about-os"></dd>
+              <dt>Build</dt><dd id="about-build"></dd>
+              <dt>Administrator</dt><dd id="about-admin"></dd>
+              <dt>Source</dt><dd>origin.cursor.com/swatto/ComputeQuiet</dd>
+              <dt>Licence</dt><dd>MIT</dd>
+            </dl>
+          </div>
+        </section>
+      </main>
+
+      <div id="dialog-root"></div>
+      <div id="toast" class="toast" role="status" hidden></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

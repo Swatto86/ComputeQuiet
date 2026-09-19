@@ -1,40 +1,97 @@
 # ComputeQuiet
 
-Windows utility that parks background work so games, local AI, or other hungry processes can use the machine — then restores everything with one click.
+Frees the machine for games and local AI, then puts everything back.
 
-![ComputeQuiet](Assets/ComputeQuiet.png)
+One switch parks the background work that competes for CPU, memory and disk:
+telemetry and indexing services, sync clients, updaters, chat apps. It moves
+Windows to its performance power plan and purges cached memory once the rest
+is out of the way. Switching it off restores every service, resumes or
+relaunches every program and returns the power plan, in reverse order. Each
+step is written to an undo journal before the next one runs, so a crash or a
+reboot cannot lose the list of what to put back.
 
-## Features
+![ComputeQuiet in Quiet Mode](docs/quiet.png)
 
-- **GO QUIET / RESTORE** toggle (WPF UI, DPI-aware)
-- Stops noisy services (`SysMain`, `WSearch`, `DiagTrack`, …) and suspends known background hogs
-- Optional **Aggressive** mode for the whole user session (shell/OS kept; foreground app skipped)
-- **High Performance** power-plan switch while quiet (restored on exit)
-- **System tray** with Go Quiet / Restore / Exit; close can minimize to tray
-- **Start with Windows** (launches minimized to tray, elevated)
-- Keep-alive list for processes that must stay running
-- State in `%LocalAppData%\ComputeQuiet\`
+## What it does
 
-Requires **Administrator** (UAC) for services, process suspend, and power plans.
+| Action | Windows | Linux | macOS |
+| --- | --- | --- | --- |
+| Suspend a program (frozen in place, resumed on restore) | `NtSuspendProcess` | `SIGSTOP` | `SIGSTOP` |
+| Close a program and relaunch it on restore | `taskkill`, then relaunch | `SIGTERM`, then relaunch | `SIGTERM`, then relaunch |
+| Stop a service and start it again | Service Control Manager (administrator) | `systemctl` (polkit for system units, `user:` prefix for user units) | `launchctl` user agents |
+| Performance power plan | `powercfg` (Ultimate or High performance) | `powerprofilesctl` | not available |
+| Purge cached memory | standby list (administrator) | `drop_caches` via polkit | not available |
 
-## Build (Windows)
+The desktop shell, compositor, input, audio, security software, terminals
+and ComputeQuiet itself are always protected and cannot be added as targets.
+Your own "never touch" list sits on top of that.
 
-```powershell
-winget install Microsoft.DotNet.SDK.8
-cd ComputeQuiet
-.\build.ps1
+## Using it
+
+1. Open ComputeQuiet. The dashboard shows live CPU, memory and process figures.
+2. Review **Targets**: the built-in list of background hogs for your platform,
+   with a running/not-running indicator. Add any running program by name,
+   choose Suspend or Close & relaunch, add services, and save.
+3. Press the big button. The activity log shows every step and anything left
+   alone (with the reason). The tray icon turns amber while Quiet Mode is on.
+4. Press it again, or use the tray menu, to restore. Quitting while quiet
+   offers to restore first.
+
+**Windows and administrator rights.** Stopping services and purging memory
+need an elevated process. ComputeQuiet starts unelevated so it can run at
+logon without a prompt; when a target needs elevation the dashboard offers
+*Relaunch as administrator*. "Start with the system" registers a logon task,
+and when created from an elevated ComputeQuiet that task starts it elevated
+without a prompt.
+
+**Start with the system** is available on all three platforms (logon task on
+Windows, LaunchAgent on macOS, XDG autostart for the Linux AppImage). It
+refuses to register a copy running from Downloads, a temporary folder or a
+build directory.
+
+## Install
+
+Every release ships an installer and a portable build per platform:
+
+| Platform | Installer | Portable |
+| --- | --- | --- |
+| Windows 10/11 x64 | `ComputeQuiet_<version>_x64-setup.exe` (NSIS, per-user) | `ComputeQuiet-portable-windows-x64.exe` |
+| Linux x64 | `computequiet_<version>_amd64.deb` | `ComputeQuiet-portable-linux-x64` / `.AppImage` |
+| macOS (Apple silicon) | `ComputeQuiet_<version>_aarch64.dmg` | `ComputeQuiet-portable-macos-arm64.app.tar.gz` |
+
+Portable builds keep their settings and undo journal in the normal per-user
+configuration folder unless `COMPUTEQUIET_DATA_DIR` points somewhere else,
+for example a folder beside the executable on a USB stick.
+
+Required runtimes (shared platform components, not bundled):
+
+- **Windows:** the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/), present on Windows 11 and updated Windows 10.
+- **Linux:** `libwebkit2gtk-4.1` and GTK 3 (the `.deb` declares them; the AppImage expects them installed). `powerprofilesctl` and `pkexec` are optional and enable the power and memory actions.
+- **macOS:** nothing beyond macOS 12 or later.
+
+State lives in `%APPDATA%\ComputeQuiet` (Windows), `~/.config/ComputeQuiet`
+(Linux) or `~/Library/Application Support/ComputeQuiet` (macOS):
+`settings.json` and, while Quiet Mode is on, `journal.json`.
+
+## Building from source
+
+Prerequisites: Rust (pinned in `rust-toolchain.toml`), Node 22+, and the
+Tauri platform prerequisites for your OS (MSVC Build Tools on Windows;
+`libwebkit2gtk-4.1-dev` and friends on Linux; Xcode command line tools on macOS).
+
+```bash
+npm ci
+npx tauri dev                 # run with hot reload
+pwsh scripts/fastcheck.ps1    # or scripts/fastcheck.sh: fmt, clippy, tsc
+pwsh scripts/verify.ps1       # or scripts/verify.sh: the full gate
 ```
 
-Run `.\publish\ComputeQuiet.exe` and accept the UAC prompt.
+The full gate runs formatting, clippy, Rust and frontend tests, a debug build
+with an in-memory fake platform, and a WebdriverIO suite that drives the real
+binary through its real webview (Windows and Linux; `scripts/setup-e2e.ps1`
+fetches the matching Edge WebDriver on Windows). Packaged installers are built
+by `npx tauri build`, which is the release step rather than the inner loop.
 
-## Tests
+## Licence
 
-```powershell
-dotnet run --project ComputeQuiet.Tests
-```
-
-## Usage tips
-
-1. Prefer balanced mode day-to-day; use Aggressive before a game/local AI run.
-2. Enable **Start with Windows** if you want tray access after login.
-3. Always **RESTORE** when finished (or use the tray menu).
+MIT. See `LICENSE`.

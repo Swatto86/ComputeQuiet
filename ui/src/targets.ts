@@ -1,0 +1,297 @@
+/** The profile editor: which programs and services Quiet Mode touches. */
+import {
+  api,
+  errorMessage,
+  type Capabilities,
+  type Os,
+  type ProcessAction,
+  type ProcessRow,
+  type Profile,
+} from "./bridge.ts";
+import { showDialog, toast } from "./dialog.ts";
+import { formatBytes } from "./format.ts";
+import {
+  addKeepAlive,
+  addProcess,
+  addService,
+  normalizeName,
+  removeKeepAlive,
+  removeProcess,
+  removeService,
+  sameProfile,
+  setProcess,
+  setService,
+} from "./profile-edit.ts";
+
+function byId<T extends HTMLElement>(id: string): T {
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`missing #${id}`);
+  return element as T;
+}
+
+export interface TargetsHost {
+  save(profile: Profile): Promise<void>;
+  defaults(): Promise<Profile>;
+}
+
+export class Targets {
+  private saved: Profile;
+  private working: Profile;
+  private running = new Map<string, ProcessRow>();
+
+  constructor(
+    initial: Profile,
+    private readonly host: TargetsHost,
+  ) {
+    this.saved = initial;
+    this.working = structuredClone(initial);
+    byId<HTMLFormElement>("process-add").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = byId<HTMLInputElement>("process-name");
+      const action = byId<HTMLSelectElement>("process-action")
+        .value as ProcessAction;
+      this.apply(
+        addProcess(this.working, name.value, action),
+        () => (name.value = ""),
+      );
+    });
+    byId<HTMLFormElement>("service-add").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = byId<HTMLInputElement>("service-name");
+      this.apply(addService(this.working, name.value), () => (name.value = ""));
+    });
+    byId<HTMLFormElement>("keep-add").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = byId<HTMLInputElement>("keep-name");
+      this.apply(
+        addKeepAlive(this.working, name.value),
+        () => (name.value = ""),
+      );
+    });
+    byId<HTMLInputElement>("opt-power").addEventListener("change", (event) => {
+      this.working = {
+        ...this.working,
+        power: (event.target as HTMLInputElement).checked
+          ? "performance"
+          : "leave",
+      };
+      this.render();
+    });
+    byId<HTMLInputElement>("opt-purge").addEventListener("change", (event) => {
+      this.working = {
+        ...this.working,
+        purge_memory: (event.target as HTMLInputElement).checked,
+      };
+      this.render();
+    });
+    byId("targets-save").addEventListener("click", () => void this.save());
+    byId("targets-reset").addEventListener("click", () => void this.reset());
+    this.render();
+  }
+
+  describe(caps: Capabilities, os: Os): void {
+    const hint = byId("service-hint");
+    if (os === "linux")
+      hint.textContent =
+        "systemd units; prefix user units with user: (e.g. user:tracker-miner-fs-3).";
+    else if (os === "mac_os")
+      hint.textContent =
+        "launchd agent labels, e.g. com.microsoft.update.agent.";
+    else if (!caps.services)
+      hint.textContent = "Stopping services needs administrator rights.";
+    else hint.textContent = "Windows service names, as shown in services.msc.";
+  }
+
+  setProfile(profile: Profile): void {
+    this.saved = profile;
+    this.working = structuredClone(profile);
+    this.render();
+  }
+
+  async refreshRunning(): Promise<void> {
+    try {
+      const rows = await api.listProcesses();
+      this.running = new Map(rows.map((row) => [normalizeName(row.name), row]));
+      const list = byId<HTMLDataListElement>("running-processes");
+      list.replaceChildren(
+        ...rows.slice(0, 200).map((row) => {
+          const option = document.createElement("option");
+          option.value = row.name;
+          option.label = `${formatBytes(row.memory_bytes)} · ${row.instances} running`;
+          return option;
+        }),
+      );
+      this.render();
+    } catch (error) {
+      toast(`Could not list processes: ${errorMessage(error)}`, true);
+    }
+  }
+
+  private apply(result: ReturnType<typeof addProcess>, onOk: () => void): void {
+    if (!result.ok) {
+      toast(result.reason, true);
+      return;
+    }
+    this.working = result.profile;
+    onOk();
+    this.render();
+  }
+
+  private async save(): Promise<void> {
+    try {
+      await this.host.save(this.working);
+      this.saved = structuredClone(this.working);
+      this.render();
+      toast("Targets saved");
+    } catch (error) {
+      toast(errorMessage(error), true);
+    }
+  }
+
+  private async reset(): Promise<void> {
+    const choice = await showDialog({
+      title: "Restore the default targets?",
+      body: "Your own additions will be removed. Nothing is saved until you press Save changes.",
+      buttons: [
+        { label: "Restore defaults", value: "yes", primary: true },
+        { label: "Cancel", value: "no" },
+      ],
+    });
+    if (choice !== "yes") return;
+    try {
+      this.working = await this.host.defaults();
+      this.render();
+    } catch (error) {
+      toast(errorMessage(error), true);
+    }
+  }
+
+  private render(): void {
+    const dirty = !sameProfile(this.saved, this.working);
+    byId<HTMLButtonElement>("targets-save").disabled = !dirty;
+    byId("targets-status").textContent = dirty ? "Unsaved changes" : "";
+    byId<HTMLInputElement>("opt-power").checked =
+      this.working.power === "performance";
+    byId<HTMLInputElement>("opt-purge").checked = this.working.purge_memory;
+
+    const processes = byId<HTMLTableSectionElement>("process-targets");
+    processes.replaceChildren(
+      ...this.working.processes.map((target, index) => {
+        const row = document.createElement("tr");
+        const enabled = this.checkbox(target.enabled, (checked) => {
+          this.working = setProcess(this.working, index, { enabled: checked });
+          this.render();
+        });
+        const name = document.createElement("td");
+        name.className = "name";
+        name.textContent = target.name;
+        const action = document.createElement("td");
+        const select = document.createElement("select");
+        select.setAttribute("aria-label", `Action for ${target.name}`);
+        for (const [value, label] of [
+          ["suspend", "Suspend"],
+          ["close", "Close & relaunch"],
+        ] as const) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = label;
+          option.selected = target.action === value;
+          select.appendChild(option);
+        }
+        select.addEventListener("change", () => {
+          this.working = setProcess(this.working, index, {
+            action: select.value as ProcessAction,
+          });
+          this.render();
+        });
+        action.appendChild(select);
+        const now = document.createElement("td");
+        const live = this.running.get(normalizeName(target.name));
+        const state = document.createElement("span");
+        state.className = live ? "state running" : "state";
+        state.textContent = live
+          ? `${live.instances} running · ${formatBytes(live.memory_bytes)}`
+          : "not running";
+        now.appendChild(state);
+        row.append(
+          enabled,
+          name,
+          action,
+          now,
+          this.remove(`Remove ${target.name}`, () => {
+            this.working = removeProcess(this.working, index);
+            this.render();
+          }),
+        );
+        return row;
+      }),
+    );
+
+    const services = byId<HTMLTableSectionElement>("service-targets");
+    services.replaceChildren(
+      ...this.working.services.map((target, index) => {
+        const row = document.createElement("tr");
+        const enabled = this.checkbox(target.enabled, (checked) => {
+          this.working = setService(this.working, index, checked);
+          this.render();
+        });
+        const name = document.createElement("td");
+        name.className = "name";
+        name.textContent = target.name;
+        row.append(
+          enabled,
+          name,
+          this.remove(`Remove ${target.name}`, () => {
+            this.working = removeService(this.working, index);
+            this.render();
+          }),
+        );
+        return row;
+      }),
+    );
+
+    const keep = byId<HTMLUListElement>("keep-alive");
+    keep.replaceChildren(
+      ...this.working.keep_alive.map((name, index) => {
+        const item = document.createElement("li");
+        item.textContent = name;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "✕";
+        button.setAttribute("aria-label", `Stop protecting ${name}`);
+        button.addEventListener("click", () => {
+          this.working = removeKeepAlive(this.working, index);
+          this.render();
+        });
+        item.appendChild(button);
+        return item;
+      }),
+    );
+  }
+
+  private checkbox(
+    checked: boolean,
+    onChange: (checked: boolean) => void,
+  ): HTMLTableCellElement {
+    const cell = document.createElement("td");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = checked;
+    input.setAttribute("aria-label", "Enabled");
+    input.addEventListener("change", () => onChange(input.checked));
+    cell.appendChild(input);
+    return cell;
+  }
+
+  private remove(label: string, onClick: () => void): HTMLTableCellElement {
+    const cell = document.createElement("td");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "small ghost";
+    button.textContent = "✕";
+    button.setAttribute("aria-label", label);
+    button.addEventListener("click", onClick);
+    cell.appendChild(button);
+    return cell;
+  }
+}
