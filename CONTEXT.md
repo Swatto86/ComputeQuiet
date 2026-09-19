@@ -20,11 +20,15 @@ the decisions and constraints that are not visible in the code.
 - **Fake platform behind a cargo feature** for the e2e suite. The suite drives
   the real binary; only the OS adapter is swapped. `verify.sh` asserts the
   feature is not a default and not in `tauri.conf.json`.
-- **No auto-updater.** The repository is hosted on Cursor Origin, which serves
-  no release manifest. `.github/workflows` are ready for a GitHub mirror and
-  do not run on Origin. Adding the updater means: a GitHub-hosted `latest.json`,
-  a minisign key, `createUpdaterArtifacts`, and `tauri-plugin-updater` driven
-  from Rust.
+- **2026-09-19: GitHub is the source of truth; Origin is an inbound mirror.**
+  Origin has no runners or releases of its own (CI there needs Depot or
+  Buildkite, Linux-only or self-hosted), so `Swatto86/ComputeQuiet` on GitHub
+  runs the workflows and hosts the releases, and `swatto/ComputeQuiet` on
+  Origin is a mirror of it. Push to GitHub (`origin` remote); never push to
+  the mirror.
+- **No auto-updater yet.** Now possible because releases live on GitHub:
+  a `latest.json` from GitHub Releases, a minisign key, `createUpdaterArtifacts`,
+  and `tauri-plugin-updater` driven from Rust.
 - **Linux elevation is per action through polkit** (`systemctl` for system
   units, `pkexec` for the cache drop), never a root relaunch of the GUI.
   macOS reports power and memory actions as unavailable rather than
@@ -39,7 +43,8 @@ the decisions and constraints that are not visible in the code.
   `scripts/setup-e2e.ps1` once per WebView2 update.
 - Release: bump the version in `Cargo.toml`, `src-tauri/tauri.conf.json` and
   `package.json` (the gate checks agreement), `AGENT_RELEASE=1 npx tauri build`
-  for the local install, tag `vX.Y.Z` for the CI release on a GitHub mirror.
+  for the local install, wait for `verify` to pass on GitHub for that commit,
+  then push tag `vX.Y.Z` to GitHub to publish the release.
 
 ## Known limits
 

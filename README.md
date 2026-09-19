@@ -51,7 +51,9 @@ build directory.
 
 ## Install
 
-Every release ships an installer and a portable build per platform:
+Download from the [GitHub Releases page](https://github.com/Swatto86/ComputeQuiet/releases).
+Every release ships an installer and a portable build per platform, built by
+the `release` workflow from the tagged commit after the full gate passes:
 
 | Platform | Installer | Portable |
 | --- | --- | --- |
