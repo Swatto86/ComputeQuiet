@@ -20,7 +20,7 @@ tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
 
-# Compile-speed defaults from ~/.agents/rust-build.md: workspace crates stay
+# Compile-speed defaults from the rust-build skill (~/.agents/skills/rust-build/SKILL.md): workspace crates stay
 # un-optimised with line tables only; dependencies get light optimisation once.
 [profile.dev]
 incremental = true

@@ -1,6 +1,6 @@
 # ComputeQuiet — working context
 
-Read this first. `ARCHITECTURE.md` explains the structure; this file records
+Every agent loads this file itself. `ARCHITECTURE.md` explains the structure; this file records
 the decisions and constraints that are not visible in the code.
 
 ## Decisions
