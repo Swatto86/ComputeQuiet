@@ -70,7 +70,7 @@ describe("Quiet Mode", () => {
 
   it("restores everything in reverse and removes the journal", async () => {
     await $("#toggle").click();
-    await waitForPill("Idle");
+    await waitForPill("Ready");
 
     assert.equal(
       readJson("journal.json"),

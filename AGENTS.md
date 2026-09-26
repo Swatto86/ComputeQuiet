@@ -1,4 +1,4 @@
-# ComputeQuiet — working context
+# CompuQuiet — working context
 
 Every agent loads this file itself. `ARCHITECTURE.md` explains the structure; this file records
 the decisions and constraints that are not visible in the code.
@@ -22,7 +22,7 @@ the decisions and constraints that are not visible in the code.
   feature is not a default and not in `tauri.conf.json`.
 - **2026-09-25: GitHub is the only remote.** Origin has no runners or releases
   of its own (CI there needs Depot or Buildkite, Linux-only or self-hosted), so
-  `Swatto86/ComputeQuiet` on GitHub is the source of truth, runs the workflows
+  `Swatto86/CompuQuiet` on GitHub is the source of truth, runs the workflows
   and hosts the releases. Swatto mirrors it to Origin himself; this clone has
   no Origin remote. Push to GitHub (`origin`) only.
 - **No auto-updater yet.** Now possible because releases live on GitHub:
@@ -54,7 +54,7 @@ the decisions and constraints that are not visible in the code.
 
 ## Known limits
 
-- A program closed and relaunched inherits ComputeQuiet's elevation if it was
+- A program closed and relaunched inherits CompuQuiet's elevation if it was
   relaunched from an elevated instance.
 - Programs that respawn themselves (updater schedulers) are suspended, not
   closed, by default for that reason.
